@@ -1,0 +1,769 @@
+/* ═══════════════════════════════════════════════════════════════
+   REVISTA DIGITAL — maquetación y motor visual de páginas
+   Identidad tomada de byvalstore.com: fondo claro, tipografía
+   Nanum Myeongjo + Darker Grotesque, rosa palo y grises cálidos.
+   Todos los colores viven en :root. No escribir colores sueltos.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root{
+  /* ── Paleta BY VAL, en clave pastel ────────────────────────── */
+  --rosa-palo:   #F2D8D8;   /* color de marca */
+  --rosa-claro:  #FCEFEF;   /* fondos muy suaves */
+  --crema:       #FDF6F0;   /* blanco cálido */
+  --lila:        #E9DDF3;   /* pastel */
+  --cielo:       #DCE8F5;   /* pastel */
+  --menta:       #DFEEE5;   /* pastel */
+  --mantequilla: #FBEBCB;   /* pastel */
+  --gris-marca:  #7A6C6C;   /* secundario, rótulos, botones */
+  --tinta:       #4A3F40;   /* texto principal */
+  --papel:       #FFFFFF;   /* la hoja de la revista */
+  --acento:      #A4626F;   /* rosa profundo: precios y énfasis */
+  --vivo:        #E8845E;   /* durazno quemado: etiquetas de oferta */
+
+  /* ── Derivados con transparencia (siempre por variable) ────── */
+  --tinta-04: rgba(74,63,64,.04);
+  --tinta-08: rgba(74,63,64,.08);
+  --tinta-14: rgba(74,63,64,.14);
+  --tinta-22: rgba(74,63,64,.22);
+  --tinta-40: rgba(74,63,64,.40);
+  --tinta-60: rgba(74,63,64,.60);
+  --tinta-85: rgba(74,63,64,.85);
+
+  --papel-14: rgba(255,255,255,.14);
+  --papel-40: rgba(255,255,255,.40);
+  --papel-70: rgba(255,255,255,.70);
+  --papel-92: rgba(255,255,255,.92);
+
+  --rosa-40:  rgba(242,216,216,.40);
+  --rosa-75:  rgba(242,216,216,.75);
+  --gris-14:  rgba(122,108,108,.16);
+  --gris-28:  rgba(122,108,108,.30);
+  --gris-45:  rgba(122,108,108,.48);
+
+  /* Velo claro sobre las fotos: aclara en vez de oscurecer */
+  --velo-claro: linear-gradient(to top,
+                  rgba(255,255,255,.92) 0%,
+                  rgba(252,239,239,.62) 42%,
+                  rgba(255,255,255,.10) 78%,
+                  transparent 100%);
+  --velo-modal: rgba(74,63,64,.32);
+
+  /* Fondo de la escena: blanco que cae en rosa palo */
+  --fondo-a: #FFFFFF;
+  --fondo-b: #FDF7F7;
+  --fondo-c: #F6E5E6;
+
+  /* Sombras suaves, nunca duras */
+  --sombra-suave: 0 10px 30px var(--tinta-08);
+  --sombra-libro: 0 26px 60px var(--tinta-14);
+
+  /* ── Medidas y ritmo ───────────────────────────────────────── */
+  --dur-hoja: 800ms;
+  --ease-hoja: cubic-bezier(.645,.045,.355,1);
+  --radio: 3px;
+  --radio-suave: 14px;
+
+  /* Alto que ocupan las barras de arriba y abajo. Bájalo si quieres
+     la revista todavía más grande; súbelo si te queda apretada. */
+  --cromo: 112px;
+
+  /* ── Tipografías BY VAL ────────────────────────────────────── */
+  --serif:    "Nanum Myeongjo", Georgia, serif;      /* titulares de revista */
+  --sans:     "Darker Grotesque", system-ui, sans-serif;  /* texto corrido */
+  --etiqueta: "Work Sans", system-ui, sans-serif;    /* rótulos en mayúsculas */
+  --mano:     "Caveat", "Segoe Script", cursive;     /* caligrafía */
+
+  color-scheme: light;
+}
+
+/* Propiedad animable que impulsa la sombra dinámica de la hoja */
+@property --p{ syntax:'<number>'; inherits:true; initial-value:0; }
+
+*, *::before, *::after{ box-sizing:border-box; }
+
+/* Varias reglas de abajo usan display:grid/flex, que le ganaría al atributo
+   [hidden]. Esta línea garantiza que "hidden" siempre esconda de verdad. */
+[hidden]{ display:none !important; }
+
+html,body{ height:100%; }
+
+body{
+  margin:0;
+  font-family:var(--sans);
+  font-size:17px;                     /* Darker Grotesque es estrecha: pide cuerpo */
+  color:var(--tinta);
+  background:linear-gradient(170deg, var(--fondo-a) 0%, var(--fondo-b) 55%, var(--fondo-c) 100%);
+  overflow:hidden;
+  -webkit-tap-highlight-color:transparent;
+}
+
+button{ font-family:inherit; color:inherit; }
+
+:focus-visible{
+  outline:2px solid var(--acento);
+  outline-offset:3px;
+  border-radius:var(--radio);
+}
+
+/* ═══════════ PANTALLA DE CARGA ═══════════ */
+.cargando{
+  position:fixed; inset:0; z-index:90;
+  display:grid; place-content:center; justify-items:center; gap:22px;
+  background:var(--papel);
+  transition:opacity .6s ease, visibility .6s;
+}
+.cargando.oculta{ opacity:0; visibility:hidden; }
+.cargando__logo{ width:170px; height:100px; }
+.cargando__logo .trazo{
+  fill:none; stroke:var(--tinta); stroke-width:3;
+  stroke-linecap:round; stroke-linejoin:round;
+  stroke-dasharray:400; stroke-dashoffset:400;
+  animation:dibujar 1.8s var(--ease-hoja) forwards;
+}
+.cargando__logo .trazo--2{ animation-delay:.35s; stroke:var(--gris-marca); }
+@keyframes dibujar{ to{ stroke-dashoffset:0; } }
+.cargando__texto{
+  margin:0; font-family:var(--etiqueta);
+  font-size:.72rem; letter-spacing:.32em; text-transform:uppercase;
+  color:var(--gris-marca);
+}
+.cargando__barra{ width:180px; height:2px; background:var(--rosa-palo); overflow:hidden; }
+.cargando__barra span{
+  display:block; height:100%; width:40%; background:var(--gris-marca);
+  animation:correr 1.2s ease-in-out infinite;
+}
+@keyframes correr{ 0%{transform:translateX(-100%)} 100%{transform:translateX(350%)} }
+
+/* ═══════════ ESTRUCTURA GENERAL ═══════════ */
+.escena{
+  position:fixed; inset:0;
+  display:grid; grid-template-rows:auto 1fr auto;
+  opacity:0; transition:opacity .5s ease;
+}
+.escena.visible{ opacity:1; }
+
+.barra{
+  display:flex; align-items:center; gap:12px;
+  padding:9px clamp(10px, 2.5vw, 26px);
+  z-index:20;
+}
+.barra--arriba{ justify-content:space-between; }
+.barra--abajo{ justify-content:center; gap:16px; }
+
+.barra__marca{
+  font-family:var(--serif); font-weight:700;
+  font-size:clamp(.95rem, 2vw, 1.2rem);
+  letter-spacing:.3em; text-transform:uppercase; color:var(--tinta);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.barra__acciones{ display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
+
+.icono{
+  position:relative;
+  width:36px; height:36px; display:grid; place-items:center;
+  border:1px solid var(--gris-14); border-radius:50%;
+  background:transparent; cursor:pointer; color:var(--gris-marca);
+  transition:background .25s ease, border-color .25s ease, color .25s ease;
+}
+.icono:hover{ background:var(--rosa-palo); border-color:var(--rosa-palo); color:var(--tinta); }
+.icono svg{ width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.icono.activo{ background:var(--gris-marca); border-color:var(--gris-marca); color:var(--papel); }
+.icono.mudo .ondas{ opacity:.15; }
+.icono__globo{
+  position:absolute; top:-3px; right:-3px; min-width:17px; height:17px; padding:0 4px;
+  display:grid; place-items:center; border-radius:9px;
+  background:var(--acento); color:var(--papel);
+  font-family:var(--etiqueta); font-size:.6rem; font-weight:500;
+}
+
+.texto-boton{
+  background:none; border:none; cursor:pointer; font-family:var(--etiqueta);
+  font-size:.66rem; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--gris-marca); transition:color .25s ease;
+}
+.texto-boton:hover{ color:var(--tinta); }
+
+/* ═══════════ ESCENARIO Y LIBRO ═══════════ */
+.escenario{
+  position:relative;
+  display:grid; place-items:center;
+  padding:0 clamp(4px, 3vw, 56px);
+  perspective:2600px;
+  perspective-origin:50% 45%;
+  overflow:hidden;
+}
+
+/* El libro toma toda la altura que le dejan las barras.
+   Dos páginas 3:4 lado a lado = una proporción 3:2. */
+.libro-marco{
+  position:relative;
+  width:min(98vw, calc((100dvh - var(--cromo)) * 1.5));
+  aspect-ratio:3 / 2;
+  transform-style:preserve-3d;
+}
+
+.libro{
+  position:absolute; inset:0;
+  transform-style:preserve-3d;
+  transition:transform var(--dur-hoja) var(--ease-hoja);
+  outline-offset:8px;
+}
+/* Libro cerrado: la portada ocupa la mitad derecha, así que corremos
+   el libro media página a la izquierda para que quede centrada. */
+.libro.cerrado{ transform:translateX(-25%); }
+.libro.terminado{ transform:translateX(25%); }
+
+.libro__sombra{
+  position:absolute; left:8%; right:8%; bottom:-4%; height:7%;
+  background:radial-gradient(50% 50% at 50% 50%, var(--tinta-22), transparent 72%);
+  filter:blur(14px); pointer-events:none;
+}
+
+/* --- LA HOJA --- */
+.hoja{
+  position:absolute; top:0; left:50%;
+  width:50%; height:100%;
+  transform-origin:left center;
+  transform-style:preserve-3d;
+  transition:transform var(--dur-hoja) var(--ease-hoja), --p var(--dur-hoja) var(--ease-hoja);
+  --p:0;
+}
+.hoja.pasada{ transform:rotateY(-180deg); --p:1; }
+.hoja.arrastrando{ transition:none; visibility:visible !important; }
+.hoja.animando{ will-change:transform; }
+
+/* Modo móvil: una sola página por hoja, a ancho completo */
+.libro.simple .hoja{ left:0; width:100%; }
+.libro.simple.cerrado,
+.libro.simple.terminado{ transform:none; }
+
+.cara{
+  position:absolute; inset:0;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  overflow:hidden;
+  background:var(--papel);
+  box-shadow:inset 0 0 40px var(--tinta-04);
+}
+.cara--frente{ border-radius:0 var(--radio-suave) var(--radio-suave) 0; }
+.cara--reverso{ transform:rotateY(180deg); border-radius:var(--radio-suave) 0 0 var(--radio-suave); }
+.libro.simple .cara--frente{ border-radius:var(--radio-suave); }
+
+/* Curvatura de papel: el lomo se oscurece hacia el centro del libro */
+.cara::after{
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:6;
+  background:linear-gradient(to left, var(--tinta-14) 0%, transparent 9%, transparent 100%);
+}
+.cara--frente::after{ background:linear-gradient(to right, var(--tinta-14) 0%, transparent 9%, transparent 100%); }
+
+/* Textura de papel (ruido SVG, opacidad muy baja) */
+.cara::before{
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:5; opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='r'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23r)'/%3E%3C/svg%3E");
+}
+
+/* Sombra dinámica que barre la hoja durante el giro */
+.hoja__brillo{
+  position:absolute; inset:0; z-index:7; pointer-events:none;
+  background:linear-gradient(to left, var(--tinta-40), transparent 55%);
+  opacity:calc(var(--p) * 1.6);
+}
+.cara--reverso .hoja__brillo{
+  background:linear-gradient(to right, var(--tinta-40), transparent 55%);
+  opacity:calc((1 - var(--p)) * 1.6);
+}
+
+/* ═══════════ FLECHAS ═══════════ */
+.flecha{
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:46px; height:46px; display:grid; place-items:center;
+  border:1px solid var(--gris-14); border-radius:50%;
+  background:var(--papel-92); cursor:pointer; z-index:15; color:var(--gris-marca);
+  transition:background .25s ease, transform .25s ease, opacity .25s ease, color .25s ease;
+}
+.flecha:hover{ background:var(--rosa-palo); color:var(--tinta); transform:translateY(-50%) scale(1.08); }
+.flecha svg{ width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.3; stroke-linecap:round; stroke-linejoin:round; }
+.flecha--izq{ left:clamp(2px, 1vw, 14px); }
+.flecha--der{ right:clamp(2px, 1vw, 14px); }
+.flecha[disabled]{ opacity:.2; pointer-events:none; }
+
+/* ═══════════ DESLIZADOR DE PÁGINAS ═══════════ */
+.barra__folio{
+  font-family:var(--etiqueta); font-size:.66rem; letter-spacing:.18em;
+  color:var(--gris-marca); min-width:74px; text-align:right; font-variant-numeric:tabular-nums;
+}
+.deslizador{ position:relative; flex:1; max-width:520px; }
+.deslizador input[type=range]{
+  width:100%; appearance:none; background:transparent; cursor:pointer; margin:0;
+}
+.deslizador input[type=range]::-webkit-slider-runnable-track{ height:2px; background:var(--gris-14); }
+.deslizador input[type=range]::-moz-range-track{ height:2px; background:var(--gris-14); }
+.deslizador input[type=range]::-webkit-slider-thumb{
+  appearance:none; width:13px; height:13px; margin-top:-5.5px; border-radius:50%;
+  background:var(--tinta); border:2px solid var(--papel);
+  box-shadow:0 0 0 3px var(--rosa-75);
+}
+.deslizador input[type=range]::-moz-range-thumb{
+  width:13px; height:13px; border-radius:50%;
+  background:var(--tinta); border:2px solid var(--papel);
+}
+.miniatura{
+  position:absolute; bottom:28px; width:120px; height:160px;
+  transform:translateX(-50%);
+  border:1px solid var(--gris-14); border-radius:var(--radio);
+  background:var(--papel); overflow:hidden; pointer-events:none;
+  box-shadow:var(--sombra-suave);
+}
+.miniatura__lienzo{ width:600px; height:800px; transform:scale(.2); transform-origin:top left; }
+
+/* ═══════════ INVITACIÓN A ABRIR ═══════════ */
+.invitacion{
+  position:fixed; inset:0; z-index:40;
+  display:grid; place-items:end center; padding-bottom:9vh;
+  animation:aparecer .8s ease .2s both;
+  pointer-events:none;              /* deja pasar los clics a la barra de arriba */
+}
+@keyframes aparecer{ from{opacity:0} to{opacity:1} }
+.invitacion__boton{
+  pointer-events:auto;
+  display:flex; align-items:center; gap:14px;
+  padding:12px 24px; border:none; background:none; cursor:pointer;
+  font-family:var(--etiqueta);
+  font-size:.7rem; letter-spacing:.34em; text-transform:uppercase;
+  color:var(--tinta);
+  animation:latir 2.4s ease-in-out infinite;
+}
+.invitacion__linea{ width:42px; height:1px; background:var(--gris-marca); }
+@keyframes latir{ 0%,100%{opacity:.5} 50%{opacity:1} }
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTENIDO DE LAS PÁGINAS
+   ═══════════════════════════════════════════════════════════════ */
+.pagina{
+  position:absolute; inset:0; z-index:2;
+  display:flex; flex-direction:column;
+  color:var(--tinta); background:var(--papel);
+  container-type:inline-size;
+  font-size:clamp(12px, 2.8cqw, 19px);
+}
+.pagina__medio{ position:absolute; inset:0; overflow:hidden; }
+.pagina__medio img{ width:100%; height:100%; object-fit:cover; display:block; }
+.pagina__velo{
+  position:absolute; inset:0;
+  background:var(--velo-claro);
+}
+
+/* Filete fino interior de todas las páginas */
+.pagina__filete{
+  position:absolute; inset:3.5cqw; border:1px solid var(--gris-28);
+  pointer-events:none; z-index:3;
+}
+/* Nombre de sección en vertical al margen */
+.pagina__seccion{
+  position:absolute; top:50%; left:1.6cqw; z-index:4;
+  transform:translateY(-50%) rotate(180deg); writing-mode:vertical-rl;
+  font-family:var(--etiqueta);
+  font-size:.58em; letter-spacing:.4em; text-transform:uppercase;
+  color:var(--gris-marca);
+}
+.pagina--par .pagina__seccion{
+  left:auto; right:1.6cqw; transform:translateY(-50%); writing-mode:vertical-rl;
+}
+/* Número de página (folio) */
+.pagina__folio{
+  position:absolute; bottom:2.2cqw; left:50%; transform:translateX(-50%); z-index:4;
+  font-family:var(--serif); font-size:.7em; letter-spacing:.16em; color:var(--gris-marca);
+}
+.pagina--oscura .pagina__seccion,
+.pagina--oscura .pagina__folio{ color:var(--papel-70); }
+.pagina--oscura .pagina__filete{ border-color:var(--papel-40); }
+
+.pagina__cuerpo{
+  position:relative; z-index:4; flex:1;
+  display:flex; flex-direction:column;
+  padding:7cqw 6.5cqw 8cqw;
+}
+
+/* --- Portada --- */
+.portada{ color:var(--tinta); }
+.portada__cuerpo{ justify-content:space-between; align-items:center; text-align:center; }
+.portada__marca{
+  font-family:var(--serif); font-weight:700;
+  font-size:2.7em; line-height:1.05; letter-spacing:.2em; text-transform:uppercase;
+  cursor:pointer; background:none; border:none; color:inherit;
+  text-shadow:0 2px 24px var(--papel-92);
+}
+.portada__temporada{
+  font-family:var(--etiqueta);
+  font-size:.66em; letter-spacing:.46em; text-transform:uppercase; margin-top:1.4em;
+  color:var(--acento);
+}
+.portada__pie{
+  font-family:var(--etiqueta);
+  font-size:.6em; letter-spacing:.3em; text-transform:uppercase; color:var(--gris-marca);
+}
+.portada__lema{
+  font-family:var(--serif); font-size:1.15em; line-height:1.6; max-width:15em;
+}
+
+/* --- Índice --- */
+.indice__titulo{
+  font-family:var(--serif); font-weight:700;
+  font-size:2em; letter-spacing:.14em; text-transform:uppercase; margin:0 0 .25em;
+}
+.indice__sub{
+  font-family:var(--etiqueta);
+  font-size:.62em; letter-spacing:.3em; text-transform:uppercase; color:var(--gris-marca);
+  margin:0 0 2em;
+}
+.indice__lista{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+.indice__fila{
+  display:flex; align-items:baseline; gap:.6em; width:100%;
+  padding:.8em 0; background:none; border:none; border-bottom:1px solid var(--tinta-08);
+  cursor:pointer; text-align:left; color:inherit;
+  transition:color .25s ease, padding-left .25s ease;
+}
+.indice__fila:hover{ color:var(--acento); padding-left:.5em; }
+.indice__nombre{ font-family:var(--serif); font-size:1.05em; }
+.indice__puntos{ flex:1; border-bottom:1px dotted var(--gris-28); transform:translateY(-.25em); }
+.indice__num{ font-family:var(--etiqueta); font-size:.78em; letter-spacing:.08em; color:var(--gris-marca); font-variant-numeric:tabular-nums; }
+
+/* --- Editorial --- */
+.editorial{ color:var(--tinta); }
+.editorial__cuerpo{ justify-content:flex-end; }
+.editorial__cita{
+  font-family:var(--serif); font-size:1.75em; line-height:1.35;
+  margin:0 0 .55em; max-width:12em;
+  text-shadow:0 2px 20px var(--papel-92);
+}
+.editorial__texto{ font-size:.92em; line-height:1.7; max-width:22em; color:var(--gris-marca); }
+.editorial__texto::first-letter{
+  float:left; font-family:var(--serif); font-size:3em; line-height:.85;
+  padding:.06em .14em 0 0; color:var(--acento);
+}
+.editorial__firma{
+  margin-top:1.4em; font-family:var(--etiqueta);
+  font-size:.6em; letter-spacing:.3em; text-transform:uppercase; color:var(--acento);
+}
+
+/* --- Producto --- */
+.producto__foto{
+  position:relative; flex:1; min-height:0; overflow:hidden;
+  border-radius:var(--radio); background:var(--rosa-claro);
+  cursor:zoom-in;
+}
+.producto__foto img{ width:100%; height:100%; object-fit:cover; display:block; }
+.producto__etiqueta{
+  position:absolute; top:.9em; left:.9em; z-index:3;
+  padding:.4em .9em; border-radius:999px;
+  background:var(--rosa-palo); color:var(--tinta);
+  font-family:var(--etiqueta); font-size:.55em; letter-spacing:.2em; text-transform:uppercase;
+}
+.producto__corazon{
+  position:absolute; top:.7em; right:.7em; z-index:3;
+  width:2.2em; height:2.2em; display:grid; place-items:center;
+  border:none; border-radius:50%; cursor:pointer;
+  background:var(--papel-92); box-shadow:var(--sombra-suave);
+  transition:transform .25s var(--ease-hoja);
+}
+.producto__corazon svg{ width:1.1em; height:1.1em; fill:none; stroke:var(--tinta); stroke-width:1.6; }
+.producto__corazon.marcado svg{ fill:var(--acento); stroke:var(--acento); }
+.producto__corazon.marcado{ animation:pulso .55s var(--ease-hoja); }
+@keyframes pulso{ 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
+
+/* Lupa de aumento en escritorio */
+.lupa{
+  position:absolute; width:9em; height:9em; border-radius:50%; z-index:4;
+  border:2px solid var(--papel); box-shadow:var(--sombra-suave);
+  background-repeat:no-repeat; pointer-events:none; opacity:0;
+  transition:opacity .2s ease;
+}
+.producto__foto:hover .lupa{ opacity:1; }
+
+.producto__info{ padding-top:1.2em; }
+.producto__categoria{
+  font-family:var(--etiqueta);
+  font-size:.55em; letter-spacing:.34em; text-transform:uppercase; color:var(--gris-marca);
+}
+.producto__nombre{
+  font-family:var(--serif); font-weight:700;
+  font-size:1.7em; line-height:1.15; letter-spacing:.02em; margin:.3em 0 .35em;
+}
+.producto__desc{ font-size:.9em; line-height:1.65; color:var(--gris-marca); margin:0 0 .9em; }
+.producto__precios{ display:flex; align-items:baseline; gap:.6em; margin-bottom:.9em; }
+.producto__precio{ font-family:var(--serif); font-size:1.35em; color:var(--acento); }
+.producto__antes{ font-size:.85em; text-decoration:line-through; color:var(--gris-45); }
+
+.producto__opciones{ display:flex; flex-wrap:wrap; gap:1.4em; margin-bottom:1.2em; }
+.opcion__rotulo{
+  font-family:var(--etiqueta);
+  font-size:.54em; letter-spacing:.26em; text-transform:uppercase; color:var(--gris-marca);
+  display:block; margin-bottom:.6em;
+}
+.tallas{ display:flex; gap:.4em; flex-wrap:wrap; }
+.talla{
+  min-width:2.1em; padding:.32em .55em; text-align:center;
+  border:1px solid var(--gris-28); border-radius:var(--radio);
+  font-family:var(--etiqueta); font-size:.62em; letter-spacing:.08em;
+}
+.colores{ display:flex; gap:.5em; }
+.color-punto{
+  width:1.3em; height:1.3em; border-radius:50%;
+  border:1px solid var(--gris-28); box-shadow:0 0 0 2px var(--papel) inset;
+}
+
+/* Botones al estilo BY VAL: contorno que se rellena al pasar el mouse */
+.boton{
+  display:inline-flex; align-items:center; gap:.6em; justify-content:center;
+  padding:.9em 1.8em; border:1px solid var(--gris-marca); border-radius:999px;
+  background:transparent; color:var(--gris-marca);
+  font-family:var(--etiqueta); font-size:.62em; letter-spacing:.26em; text-transform:uppercase;
+  cursor:pointer; text-decoration:none;
+  transition:background .3s ease, color .3s ease, border-color .3s ease, transform .3s ease;
+}
+.boton:hover{ background:var(--gris-marca); color:var(--papel); }
+.boton--primario{ border-color:var(--tinta); color:var(--tinta); }
+.boton--primario:hover{ background:var(--tinta); color:var(--papel); transform:translateY(-1px); }
+.boton--linea{ border-color:var(--gris-28); }
+.boton--fantasma{ border-color:var(--gris-28); color:var(--tinta); background:var(--papel-70); }
+.boton--fantasma:hover{ background:var(--rosa-palo); color:var(--tinta); }
+
+/* --- Página doble tipo lookbook (composición asimétrica) --- */
+.doble__cuerpo{ padding:6cqw 5.5cqw 7cqw; }
+.doble__titulo{
+  font-family:var(--serif); font-weight:700;
+  font-size:1.6em; letter-spacing:.12em; text-transform:uppercase; margin:0 0 .2em;
+}
+.doble__sub{
+  font-family:var(--etiqueta);
+  font-size:.58em; letter-spacing:.28em; text-transform:uppercase; color:var(--gris-marca);
+  margin:0 0 1.2em;
+}
+.lookbook{
+  flex:1; min-height:0; display:grid; gap:.7em;
+  grid-template-columns:repeat(6,1fr); grid-template-rows:repeat(6,1fr);
+}
+.lookbook__pieza{
+  position:relative; overflow:hidden; border-radius:var(--radio);
+  background:var(--rosa-claro); cursor:pointer; border:none; padding:0;
+}
+.lookbook__pieza img{ width:100%; height:100%; object-fit:cover; transition:transform .6s var(--ease-hoja); }
+.lookbook__pieza:hover img{ transform:scale(1.05); }
+.lookbook__pie{
+  position:absolute; left:0; right:0; bottom:0; padding:1.1em .8em .7em; text-align:left;
+  background:linear-gradient(to top, var(--papel-92) 35%, transparent);
+  color:var(--tinta);
+}
+.lookbook__nombre{ font-family:var(--serif); font-size:.88em; display:block; line-height:1.25; }
+.lookbook__precio{ font-family:var(--etiqueta); font-size:.6em; letter-spacing:.12em; color:var(--acento); }
+/* Cuatro tamaños distintos, nunca una grilla simétrica */
+.lookbook__pieza:nth-child(1){ grid-column:1 / 4; grid-row:1 / 5; }
+.lookbook__pieza:nth-child(2){ grid-column:4 / 7; grid-row:1 / 3; }
+.lookbook__pieza:nth-child(3){ grid-column:4 / 7; grid-row:3 / 7; }
+.lookbook__pieza:nth-child(4){ grid-column:1 / 4; grid-row:5 / 7; }
+
+/* --- Contraportada --- */
+.contra{ color:var(--tinta); }
+.contra__cuerpo{ justify-content:center; align-items:center; text-align:center; gap:1em; }
+.contra__gracias{ font-family:var(--serif); font-size:1.9em; line-height:1.3; margin:0; }
+.contra__dato{ font-size:.9em; letter-spacing:.1em; line-height:1.9; color:var(--gris-marca); }
+.contra__redes{ display:flex; gap:1.4em; margin-top:.5em; }
+.contra__red{
+  font-family:var(--etiqueta);
+  font-size:.6em; letter-spacing:.26em; text-transform:uppercase;
+  color:var(--acento); text-decoration:none;
+  border-bottom:1px solid var(--gris-28); padding-bottom:.25em;
+}
+.contra__red:hover{ color:var(--tinta); }
+
+/* --- Página de look generada por la clienta --- */
+.look__rejilla{
+  flex:1; display:grid; gap:.6em; min-height:0;
+  grid-template-columns:repeat(auto-fit, minmax(28%, 1fr));
+}
+.look__pieza{ position:relative; overflow:hidden; border-radius:var(--radio); background:var(--rosa-claro); }
+.look__pieza img{ width:100%; height:100%; object-fit:cover; }
+.look__total{
+  margin-top:1em; font-family:var(--serif); font-size:1.2em; color:var(--acento);
+  display:flex; justify-content:space-between; align-items:baseline;
+}
+
+.pagina--vacia{ background:var(--papel); }
+
+/* ═══════════════════════════════════════════════════════════════
+   PÁGINAS EDITORIALES LIBRES
+   Los bloques se colocan en % de la página, así que la composición
+   se ve idéntica en la revista, en la vista previa y en el celular.
+   ═══════════════════════════════════════════════════════════════ */
+.lienzo{ position:absolute; inset:0; z-index:4; }
+
+.eb{
+  position:absolute;
+  transform-origin:top left;
+}
+.eb--texto{ white-space:pre-wrap; overflow-wrap:break-word; }
+.eb--foto{ overflow:hidden; border-radius:var(--radio); background:var(--rosa-claro); }
+.eb--foto img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+/* --- Los estilos de letra que se eligen desde el panel --- */
+.eb-display{
+  font-family:var(--sans); font-weight:700; text-transform:uppercase;
+  line-height:.86; letter-spacing:-.015em;
+}
+.eb-titular{
+  font-family:var(--serif); font-weight:700; text-transform:uppercase;
+  line-height:1.08; letter-spacing:.1em;
+}
+.eb-manuscrita{ font-family:var(--mano); font-weight:700; line-height:.95; }
+.eb-cita{ font-family:var(--serif); font-weight:400; line-height:1.25; }
+.eb-cita::before{ content:'“'; }
+.eb-cita::after{ content:'”'; }
+.eb-parrafo{ font-family:var(--sans); font-weight:400; line-height:1.55; }
+.eb-etiqueta{
+  font-family:var(--etiqueta); font-weight:400; text-transform:uppercase;
+  line-height:1.5; letter-spacing:.3em;
+}
+
+/* ═══════════ ZOOM DE PÁGINA ═══════════ */
+.libro-marco.zoom{ cursor:zoom-out; }
+.libro-marco.zoom .libro{ transition:transform .35s ease; }
+
+/* ═══════════ MODALES ═══════════ */
+.modal{
+  position:fixed; inset:0; z-index:60;
+  display:grid; place-items:center; padding:20px;
+  background:var(--velo-modal); backdrop-filter:blur(6px);
+  animation:aparecer .25s ease;
+}
+.modal[hidden]{ display:none; }
+.modal__caja{
+  position:relative; width:min(560px, 100%);
+  max-height:86dvh; overflow:auto;
+  padding:34px 30px 26px; border-radius:var(--radio-suave);
+  background:var(--papel); color:var(--tinta);
+  box-shadow:var(--sombra-libro);
+}
+.modal__caja--alta{ width:min(640px,100%); }
+.modal__cerrar{
+  position:absolute; top:12px; right:14px;
+  width:34px; height:34px; border:none; border-radius:50%;
+  background:var(--tinta-04); font-size:1.4rem; line-height:1; cursor:pointer; color:var(--tinta);
+}
+.modal__cerrar:hover{ background:var(--rosa-palo); }
+.modal__titulo{
+  font-family:var(--serif); font-weight:700;
+  font-size:1.35rem; letter-spacing:.12em; text-transform:uppercase; margin:0 0 .7rem;
+}
+.modal__ayuda{ font-size:.95rem; color:var(--gris-marca); margin:0 0 1rem; }
+.modal__pie{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:18px; flex-wrap:wrap; }
+.modal__total{ font-family:var(--serif); font-size:1.1rem; color:var(--acento); }
+
+.campo{
+  width:100%; padding:.8rem 1rem; font-family:inherit; font-size:1rem;
+  border:1px solid var(--gris-28); border-radius:var(--radio);
+  background:var(--papel); color:var(--tinta);
+}
+.campo:focus{ border-color:var(--tinta); outline:none; box-shadow:0 0 0 3px var(--rosa-75); }
+
+.resultados{ list-style:none; margin:14px 0 0; padding:0; display:flex; flex-direction:column; }
+.resultados li button{
+  width:100%; display:flex; align-items:center; gap:12px; text-align:left;
+  padding:.7rem .4rem; background:none; border:none; border-bottom:1px solid var(--tinta-08);
+  cursor:pointer; color:var(--tinta); transition:background .2s ease;
+}
+.resultados li button:hover{ background:var(--rosa-claro); }
+.resultados img{ width:44px; height:56px; object-fit:cover; border-radius:2px; }
+.resultados strong{ font-family:var(--serif); font-weight:700; font-size:1rem; }
+.resultados small{ display:block; color:var(--gris-marca); font-size:.8rem; }
+.resultados .num{ margin-left:auto; color:var(--gris-marca); font-family:var(--etiqueta); font-size:.72rem; }
+
+.lista-deseos{ list-style:none; margin:0; padding:0; }
+.lista-deseos li{
+  display:flex; align-items:center; gap:12px; padding:.6rem 0;
+  border-bottom:1px solid var(--tinta-08);
+}
+.lista-deseos img{ width:48px; height:62px; object-fit:cover; border-radius:2px; }
+.lista-deseos .quitar{
+  margin-left:auto; border:none; background:none; cursor:pointer;
+  color:var(--gris-marca); font-size:1.2rem;
+}
+.vacio{ text-align:center; padding:26px 0; color:var(--gris-marca); font-size:.95rem; }
+
+.rejilla-look{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px;
+  max-height:46dvh; overflow:auto; padding-right:4px;
+}
+.mini-prenda{
+  position:relative; border:2px solid transparent; border-radius:var(--radio);
+  overflow:hidden; cursor:pointer; background:var(--rosa-claro); padding:0;
+}
+.mini-prenda img{ width:100%; aspect-ratio:3/4; object-fit:cover; display:block; }
+.mini-prenda span{ display:block; padding:6px; font-size:.85rem; text-align:left; color:var(--tinta); background:var(--papel); }
+.mini-prenda.elegida{ border-color:var(--tinta); }
+
+/* ═══════════ TOSTADAS (avisos) ═══════════ */
+.tostadas{
+  position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+  z-index:80; display:flex; flex-direction:column; gap:8px; align-items:center;
+  pointer-events:none;
+}
+.tostada{
+  padding:.65rem 1.3rem; border-radius:999px;
+  background:var(--tinta); color:var(--papel);
+  font-size:.92rem; letter-spacing:.03em;
+  box-shadow:var(--sombra-libro);
+  animation:subir .4s var(--ease-hoja);
+}
+.tostada--ok{ background:var(--acento); }
+@keyframes subir{ from{ opacity:0; transform:translateY(14px);} to{ opacity:1; transform:none;} }
+
+/* ═══════════ PÉTALOS (easter egg) ═══════════ */
+.petalos{ position:absolute; inset:0; pointer-events:none; z-index:30; overflow:hidden; }
+.petalo{
+  position:absolute; top:-8%; width:16px; height:16px;
+  background:var(--rosa-palo); border-radius:60% 0 60% 0;
+  animation:caer linear forwards;
+}
+@keyframes caer{ to{ transform:translateY(115vh) rotate(540deg); opacity:0; } }
+
+/* ═══════════ VERSIÓN IMPRIMIBLE ═══════════ */
+.imprimible{ display:none; }
+
+@media print{
+  body{ overflow:visible; background:var(--papel); }
+  .escena, .cargando, .invitacion, .modal, .tostadas{ display:none !important; }
+  .imprimible{ display:block; }
+  .hoja-impresa{
+    position:relative; width:100%; height:100vh;
+    page-break-after:always; break-after:page; overflow:hidden;
+    color:var(--tinta); background:var(--papel);
+  }
+  .hoja-impresa .pagina{ position:absolute; inset:0; }
+}
+
+/* ═══════════ MÓVIL ═══════════ */
+@media (max-width: 820px){
+  :root{ --cromo: 104px; }
+  .libro-marco{
+    width:min(97vw, calc((100dvh - var(--cromo)) * .75));
+    aspect-ratio:3 / 4;
+  }
+  .barra__acciones .icono:nth-child(n+6){ display:none; }
+  .flecha{ width:38px; height:38px; }
+  .barra__marca{ letter-spacing:.18em; }
+}
+
+/* ═══════════ MOVIMIENTO REDUCIDO ═══════════ */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration:.01ms !important; animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}
+/* Clase que aplica el JS: sustituye el giro 3D por un desvanecido */
+.sin-movimiento .hoja{ transition:opacity .3s linear !important; transform:none !important; }
+.sin-movimiento .hoja.pasada{ opacity:0; pointer-events:none; }
+.sin-movimiento .cara--reverso{ display:none; }
+.sin-movimiento .libro.cerrado,
+.sin-movimiento .libro.terminado{ transform:none; }
+.sin-movimiento .hoja__brillo{ display:none; }

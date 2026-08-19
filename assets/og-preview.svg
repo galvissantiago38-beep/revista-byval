@@ -1,0 +1,20 @@
+<!-- Vista previa al compartir el enlace.
+     WhatsApp y Facebook prefieren JPG/PNG: cuando tengas una foto real,
+     guárdala como assets/og-preview.jpg y cambia la etiqueta og:image en index.html. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F7D9DC"/>
+      <stop offset="0.5" stop-color="#FFC9A8"/>
+      <stop offset="1" stop-color="#F98866"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#fondo)"/>
+  <rect x="60" y="60" width="1080" height="510" fill="none" stroke="#D4A574" stroke-width="2"/>
+  <text x="600" y="300" text-anchor="middle" font-family="Georgia,serif" font-size="96"
+        letter-spacing="18" fill="#3B2E2F">MARENA</text>
+  <text x="600" y="360" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="26"
+        letter-spacing="14" fill="#C25E4A">PRIMAVERA / VERANO 26</text>
+  <text x="600" y="470" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="22"
+        letter-spacing="8" fill="#3B2E2F" opacity="0.65">CATÁLOGO EN FORMATO REVISTA</text>
+</svg>

@@ -1,0 +1,11 @@
+# Reglas para Netlify.
+#
+# El panel de administración NO debe quedar abierto en internet: cualquiera
+# que entre a tusitio.com/admin.html tendría el panel en blanco con la clave
+# por defecto, porque sin un servidor de verdad la contraseña no se puede
+# comprobar contra nada. Además, editar desde ahí no cambiaría tu catálogo
+# publicado: solo el navegador de esa persona.
+#
+# Por eso, quien intente entrar al panel desde el sitio publicado va a parar
+# a la revista. Tú sigues usándolo en tu computador con "ABRIR REVISTA.bat".
+/admin.html   /index.html   302!

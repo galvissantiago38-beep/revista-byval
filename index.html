@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Revista — Catálogo de moda</title>
+  <meta name="description" content="Catálogo de ropa femenina en formato de revista digital: pasa las hojas, mira los looks y pide por WhatsApp.">
+  <meta name="theme-color" content="#F2D8D8">
+
+  <!-- Open Graph / vista previa al compartir el enlace -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Revista — Catálogo de moda">
+  <meta property="og:description" content="Pasa las hojas y descubre la nueva temporada.">
+  <meta property="og:image" content="assets/og-preview.svg">
+  <meta property="og:locale" content="es_CO">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/icono-512.svg">
+
+  <!-- Tipografías de revista -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Las mismas tipografías que usa byvalstore.com -->
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Darker+Grotesque:wght@300..700&family=Nanum+Myeongjo:wght@400;700&family=Work+Sans:wght@300..500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/magazine.css">
+</head>
+<body>
+
+<!-- ══════════ PANTALLA DE CARGA ══════════ -->
+<div class="cargando" id="cargando" role="status" aria-live="polite">
+  <svg class="cargando__logo" viewBox="0 0 200 120" aria-hidden="true">
+    <path class="trazo" d="M20 96 L20 24 L60 78 L100 24 L100 96" />
+    <path class="trazo trazo--2" d="M124 96 L124 24 L168 24 M124 58 L160 58 M124 96 L172 96" />
+  </svg>
+  <p class="cargando__texto">Preparando la revista…</p>
+  <div class="cargando__barra"><span></span></div>
+</div>
+
+<!-- ══════════ ESCENA DE LA REVISTA ══════════ -->
+<main class="escena" id="escena" hidden>
+
+  <!-- Barra superior -->
+  <header class="barra barra--arriba">
+    <div class="barra__marca" id="marcaCabecera"></div>
+    <nav class="barra__acciones" aria-label="Acciones de la revista">
+      <button class="icono" id="btnBuscar" aria-label="Buscar en la revista" title="Buscar (B)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      </button>
+      <button class="icono" id="btnDeseos" aria-label="Ver mi lista de deseos" title="Favoritos (F)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.35-7-9a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 4.65-7 9-7 9z"/></svg>
+        <span class="icono__globo" id="contadorDeseos" hidden>0</span>
+      </button>
+      <button class="icono" id="btnLook" aria-label="Modo prueba de estilo" title="Arma tu look (L)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3l3 2 3-2 4 4-3 2v12H8V9L5 7z"/></svg>
+      </button>
+      <button class="icono" id="btnAuto" aria-label="Lectura automática" title="Lectura automática (espacio)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+      </button>
+      <button class="icono" id="btnSonido" aria-label="Silenciar sonido de páginas" title="Sonido (M)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path class="ondas" d="M16 9a4 4 0 0 1 0 6"/></svg>
+      </button>
+      <button class="icono" id="btnCompartir" aria-label="Compartir la revista" title="Compartir">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+      </button>
+      <button class="icono" id="btnImprimir" aria-label="Versión para imprimir o guardar en PDF" title="Imprimir / PDF">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 17h10v4H7z"/></svg>
+      </button>
+      <button class="icono" id="btnPantalla" aria-label="Pantalla completa" title="Pantalla completa (P)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Zona del libro -->
+  <div class="escenario" id="escenario">
+    <button class="flecha flecha--izq" id="flechaIzq" aria-label="Página anterior">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+
+    <!-- El motor de flipbook inyecta las hojas dentro de #libro -->
+    <div class="libro-marco" id="libroMarco">
+      <div class="libro" id="libro" tabindex="0" role="region"
+           aria-roledescription="revista" aria-label="Revista digital: usa las flechas para pasar las páginas"></div>
+      <div class="libro__sombra" aria-hidden="true"></div>
+    </div>
+
+    <button class="flecha flecha--der" id="flechaDer" aria-label="Página siguiente">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+
+    <!-- Capa de pétalos del easter egg -->
+    <div class="petalos" id="petalos" aria-hidden="true"></div>
+  </div>
+
+  <!-- Barra inferior: deslizador de páginas -->
+  <footer class="barra barra--abajo">
+    <span class="barra__folio" id="folio">1 / 12</span>
+    <div class="deslizador" id="deslizador">
+      <input type="range" id="rangoPaginas" min="0" max="11" value="0" step="1"
+             aria-label="Ir a una página de la revista">
+      <div class="miniatura" id="miniatura" hidden aria-hidden="true"></div>
+    </div>
+    <button class="texto-boton" id="btnIndice">Índice</button>
+  </footer>
+</main>
+
+<!-- ══════════ CAPA DE APERTURA (toca para abrir) ══════════ -->
+<div class="invitacion" id="invitacion" hidden>
+  <button class="invitacion__boton" id="btnAbrir">
+    <span class="invitacion__linea"></span>
+    Toca para abrir
+    <span class="invitacion__linea"></span>
+  </button>
+</div>
+
+<!-- ══════════ MODALES ══════════ -->
+<div class="modal" id="modalBuscar" role="dialog" aria-modal="true" aria-labelledby="tituloBuscar" hidden>
+  <div class="modal__caja modal__caja--alta">
+    <button class="modal__cerrar" data-cerrar aria-label="Cerrar">&times;</button>
+    <h2 class="modal__titulo" id="tituloBuscar">Buscar</h2>
+    <input type="search" id="campoBuscar" class="campo" placeholder="vestido, blusa, lino…" autocomplete="off">
+    <ul class="resultados" id="resultadosBuscar"></ul>
+  </div>
+</div>
+
+<div class="modal" id="modalDeseos" role="dialog" aria-modal="true" aria-labelledby="tituloDeseos" hidden>
+  <div class="modal__caja modal__caja--alta">
+    <button class="modal__cerrar" data-cerrar aria-label="Cerrar">&times;</button>
+    <h2 class="modal__titulo" id="tituloDeseos">Mis favoritos</h2>
+    <ul class="lista-deseos" id="listaDeseos"></ul>
+    <div class="modal__pie">
+      <span class="modal__total" id="totalDeseos"></span>
+      <button class="boton boton--primario" id="btnDeseosWhatsapp">Enviar por WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalLook" role="dialog" aria-modal="true" aria-labelledby="tituloLook" hidden>
+  <div class="modal__caja modal__caja--alta">
+    <button class="modal__cerrar" data-cerrar aria-label="Cerrar">&times;</button>
+    <h2 class="modal__titulo" id="tituloLook">Arma tu look</h2>
+    <p class="modal__ayuda">Marca las prendas que quieres combinar y crearemos una página extra con tu conjunto.</p>
+    <div class="rejilla-look" id="rejillaLook"></div>
+    <div class="modal__pie">
+      <span class="modal__total" id="totalLook"></span>
+      <button class="boton boton--primario" id="btnCrearLook">Ver mi look</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalIndice" role="dialog" aria-modal="true" aria-labelledby="tituloIndiceModal" hidden>
+  <div class="modal__caja">
+    <button class="modal__cerrar" data-cerrar aria-label="Cerrar">&times;</button>
+    <h2 class="modal__titulo" id="tituloIndiceModal">Contenido</h2>
+    <ul class="resultados" id="listaIndice"></ul>
+  </div>
+</div>
+
+<!-- Notificaciones -->
+<div class="tostadas" id="tostadas" role="status" aria-live="polite"></div>
+
+<!-- Contenedor de la versión imprimible -->
+<div class="imprimible" id="imprimible" aria-hidden="true"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

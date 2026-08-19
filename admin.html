@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel — Revista</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Darker+Grotesque:wght@300..700&family=Nanum+Myeongjo:wght@400;700&family=Work+Sans:wght@300..500&display=swap" rel="stylesheet">
+
+  <!-- magazine.css primero: la vista previa usa exactamente los mismos estilos que la revista -->
+  <link rel="stylesheet" href="css/magazine.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="admin">
+
+<!-- ══════════ LOGIN ══════════ -->
+<!-- Seguridad básica de fachada: la clave vive en localStorage del navegador.
+     Cualquiera con acceso al equipo puede verla. Para seguridad real
+     hace falta un backend con usuarios y sesiones. -->
+<section class="acceso" id="acceso">
+  <form class="acceso__caja" id="formAcceso" autocomplete="off">
+    <h1 class="acceso__titulo">Panel de la revista</h1>
+    <p class="acceso__ayuda">Ingresa la contraseña para administrar el catálogo.</p>
+    <label class="campo-rotulo" for="claveAcceso">Contraseña</label>
+    <input class="campo" type="password" id="claveAcceso" required autocomplete="current-password">
+    <p class="acceso__error" id="errorAcceso" hidden>Contraseña incorrecta.</p>
+    <button class="boton boton--primario" type="submit">Entrar</button>
+    <p class="acceso__nota">Seguridad básica de fachada; para seguridad real hace falta un backend.</p>
+  </form>
+</section>
+
+<!-- ══════════ PANEL ══════════ -->
+<div class="panel" id="panel" hidden>
+
+  <aside class="lateral">
+    <div class="lateral__marca">
+      <span id="marcaLateral">Revista</span>
+      <small>Panel</small>
+    </div>
+    <nav class="menu" aria-label="Secciones del panel">
+      <button class="menu__item activo" data-vista="tablero">Resumen</button>
+      <button class="menu__item" data-vista="productos">Productos</button>
+      <button class="menu__item" data-vista="revista">Revista</button>
+      <button class="menu__item" data-vista="ajustes">Ajustes</button>
+      <button class="menu__item" data-vista="datos">Respaldo</button>
+    </nav>
+    <div class="lateral__pie">
+      <a class="enlace-sutil" href="index.html" target="_blank" rel="noopener">Ver la revista ↗</a>
+      <button class="enlace-sutil" id="btnSalir">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main class="contenido">
+
+    <!-- ── RESUMEN ── -->
+    <section class="vista activa" id="vista-tablero">
+      <header class="vista__cabecera">
+        <h2>Resumen</h2>
+        <p>Cómo va tu catálogo hoy.</p>
+      </header>
+
+      <div class="tarjetas" id="tarjetasResumen"></div>
+
+      <div class="dos-columnas">
+        <div class="bloque">
+          <h3 class="bloque__titulo">Lo más mirado</h3>
+          <ol class="ranking" id="rankingProductos"></ol>
+        </div>
+        <div class="bloque">
+          <h3 class="bloque__titulo">Páginas más vistas</h3>
+          <ol class="ranking" id="rankingPaginas"></ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PRODUCTOS ── -->
+    <section class="vista" id="vista-productos">
+      <header class="vista__cabecera">
+        <h2>Productos</h2>
+        <p>Crea, edita y organiza las prendas del catálogo.</p>
+        <button class="boton boton--primario" id="btnNuevoProducto">Nueva prenda</button>
+      </header>
+
+      <div class="productos-diseno">
+        <div class="bloque bloque--lista">
+          <input class="campo campo--busca" type="search" id="filtroProductos" placeholder="Buscar prenda…">
+          <ul class="lista-productos" id="listaProductos"></ul>
+        </div>
+
+        <div class="bloque bloque--editor" id="editorProducto" hidden>
+          <form id="formProducto" autocomplete="off">
+            <div class="editor-columnas">
+
+              <div class="editor-campos">
+                <div class="fila">
+                  <label class="campo-rotulo" for="pNombre">Nombre</label>
+                  <input class="campo" id="pNombre" required maxlength="60">
+                </div>
+
+                <div class="fila">
+                  <label class="campo-rotulo" for="pCorta">
+                    Descripción breve <span class="contador" id="contadorCorta">0/90</span>
+                  </label>
+                  <input class="campo" id="pCorta" maxlength="90">
+                </div>
+
+                <div class="fila">
+                  <label class="campo-rotulo" for="pLarga">Descripción larga</label>
+                  <textarea class="campo" id="pLarga" rows="4"></textarea>
+                </div>
+
+                <div class="fila fila--doble">
+                  <div>
+                    <label class="campo-rotulo" for="pPrecio">Precio</label>
+                    <input class="campo" id="pPrecio" type="number" min="0" step="1000" required>
+                  </div>
+                  <div>
+                    <label class="campo-rotulo" for="pAntes">Precio anterior</label>
+                    <input class="campo" id="pAntes" type="number" min="0" step="1000">
+                  </div>
+                </div>
+
+                <div class="fila fila--doble">
+                  <div>
+                    <label class="campo-rotulo" for="pCategoria">Categoría</label>
+                    <input class="campo" id="pCategoria" list="categorias">
+                    <datalist id="categorias"></datalist>
+                  </div>
+                  <div>
+                    <label class="campo-rotulo" for="pStock">Stock</label>
+                    <input class="campo" id="pStock" type="number" min="0" step="1">
+                  </div>
+                </div>
+
+                <div class="fila">
+                  <label class="campo-rotulo" for="pTallas">Tallas <small>(separadas por coma)</small></label>
+                  <input class="campo" id="pTallas" placeholder="XS, S, M, L">
+                </div>
+
+                <div class="fila">
+                  <span class="campo-rotulo">Colores</span>
+                  <div class="colores-editor" id="coloresEditor"></div>
+                  <div class="color-nuevo">
+                    <input type="color" id="colorHex" value="#E8829B" aria-label="Elegir color">
+                    <input class="campo" id="colorNombre" placeholder="Nombre del color">
+                    <button class="boton boton--linea" type="button" id="btnAgregarColor">Agregar</button>
+                  </div>
+                </div>
+
+                <div class="fila fila--doble">
+                  <div>
+                    <label class="campo-rotulo" for="pEtiqueta">Etiqueta</label>
+                    <select class="campo" id="pEtiqueta">
+                      <option value="">Sin etiqueta</option>
+                      <option>Nuevo</option>
+                      <option>Últimas unidades</option>
+                      <option>Oferta</option>
+                    </select>
+                  </div>
+                  <div>
+                    <span class="campo-rotulo">Visible</span>
+                    <label class="interruptor">
+                      <input type="checkbox" id="pVisible" checked>
+                      <span></span> Se muestra en la revista
+                    </label>
+                  </div>
+                </div>
+
+                <div class="fila">
+                  <span class="campo-rotulo">Fotos</span>
+                  <div class="soltar" id="zonaSoltar" tabindex="0" role="button"
+                       aria-label="Arrastra fotos aquí o toca para elegirlas">
+                    <p>Arrastra tus fotos aquí</p>
+                    <small>o toca para elegirlas · se ajustan solas a 1600 px</small>
+                    <input type="file" id="archivoFotos" accept="image/*" multiple hidden>
+                  </div>
+                  <ul class="galeria" id="galeriaFotos"></ul>
+                </div>
+
+                <div class="acciones-editor">
+                  <button class="boton boton--primario" type="submit">Guardar</button>
+                  <button class="boton boton--linea" type="button" id="btnDuplicarProducto">Duplicar</button>
+                  <button class="boton boton--peligro" type="button" id="btnBorrarProducto">Eliminar</button>
+                  <button class="boton boton--linea" type="button" id="btnCancelarProducto">Cerrar</button>
+                </div>
+              </div>
+
+              <div class="editor-vista">
+                <span class="campo-rotulo">Vista previa en vivo</span>
+                <div class="marco-previa">
+                  <div class="previa" id="previaProducto"></div>
+                </div>
+              </div>
+
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── REVISTA (constructor de páginas) ── -->
+    <section class="vista" id="vista-revista">
+      <header class="vista__cabecera">
+        <h2>Revista</h2>
+        <p>Arrastra las páginas para cambiar el orden. El número de página se recalcula solo.</p>
+        <div class="cabecera-acciones">
+          <select class="campo campo--corto" id="tipoNuevaPagina">
+            <option value="producto">Producto</option>
+            <option value="editorial">Editorial</option>
+            <option value="doble">Doble (lookbook)</option>
+            <option value="indice">Índice</option>
+            <option value="portada">Portada</option>
+            <option value="contraportada">Contraportada</option>
+          </select>
+          <button class="boton boton--primario" id="btnAgregarPagina">Agregar página</button>
+        </div>
+      </header>
+
+      <div class="dos-columnas dos-columnas--revista">
+        <ol class="lista-paginas" id="listaPaginas"></ol>
+        <div class="bloque bloque--editor" id="editorPagina" hidden>
+          <h3 class="bloque__titulo" id="tituloEditorPagina">Página</h3>
+          <div class="fila">
+            <label class="campo-rotulo" for="pgSeccion">Nombre de la sección</label>
+            <input class="campo" id="pgSeccion">
+          </div>
+          <div class="fila" data-solo="portada indice doble">
+            <label class="campo-rotulo" for="pgTitulo">Título</label>
+            <input class="campo" id="pgTitulo">
+          </div>
+          <div class="fila" data-solo="doble">
+            <label class="campo-rotulo" for="pgSubtitulo">Subtítulo</label>
+            <input class="campo" id="pgSubtitulo">
+          </div>
+          <div class="fila" data-solo="obsoleto">
+            <label class="campo-rotulo" for="pgCita">Frase destacada</label>
+            <input class="campo" id="pgCita">
+          </div>
+          <div class="fila" data-solo="obsoleto">
+            <label class="campo-rotulo" for="pgTexto">Texto</label>
+            <textarea class="campo" id="pgTexto" rows="5"></textarea>
+          </div>
+          <div class="fila" data-solo="obsoleto">
+            <label class="campo-rotulo" for="pgFirma">Firma</label>
+            <input class="campo" id="pgFirma">
+          </div>
+          <div class="fila" data-solo="producto">
+            <label class="campo-rotulo" for="pgProducto">Prenda de esta página</label>
+            <select class="campo" id="pgProducto"></select>
+          </div>
+          <div class="fila" data-solo="doble">
+            <span class="campo-rotulo">Prendas del lookbook (hasta 4)</span>
+            <div class="selector-multiple" id="pgProductos"></div>
+          </div>
+          <div class="fila" data-solo="portada editorial contraportada">
+            <span class="campo-rotulo">Foto de fondo</span>
+            <div class="soltar soltar--chica" id="zonaSoltarPagina" tabindex="0" role="button"
+                 aria-label="Arrastra una foto de fondo">
+              <p>Arrastra una foto</p>
+              <input type="file" id="archivoPagina" accept="image/*" hidden>
+            </div>
+            <div class="previa-fondo" id="previaFondoPagina"></div>
+          </div>
+          <!-- ── COMPOSITOR EDITORIAL ── -->
+          <div class="fila" data-solo="editorial">
+            <span class="campo-rotulo">Diseño de la página</span>
+
+            <div class="compositor">
+              <div class="compositor__lienzo" id="lienzoEditor" tabindex="0"
+                   aria-label="Lienzo de la página: arrastra los bloques para moverlos"></div>
+
+              <div class="compositor__barra">
+                <select class="campo campo--corto" id="plantillaPagina">
+                  <option value="">Empezar desde una plantilla…</option>
+                </select>
+                <button class="boton boton--linea" type="button" id="btnAgregarTexto">+ Texto</button>
+                <button class="boton boton--linea" type="button" id="btnAgregarFoto">+ Foto</button>
+              </div>
+
+              <div class="compositor__fondo">
+                <div class="fila--doble">
+                  <div>
+                    <label class="campo-rotulo" for="fondoColor">Color de fondo</label>
+                    <select class="campo" id="fondoColor"></select>
+                  </div>
+                  <div>
+                    <label class="campo-rotulo" for="fondoVelo">Aclarar la foto de fondo</label>
+                    <input class="rango" type="range" id="fondoVelo" min="0" max="90" step="5">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Controles del bloque seleccionado -->
+              <div class="inspector" id="inspector" hidden>
+                <div class="inspector__cabecera">
+                  <strong id="inspectorTitulo">Bloque</strong>
+                  <span class="inspector__acciones">
+                    <button class="mini" type="button" id="btnBloqueAtras" title="Enviar atrás">⤓</button>
+                    <button class="mini" type="button" id="btnBloqueFrente" title="Traer al frente">⤒</button>
+                    <button class="mini" type="button" id="btnBloqueCopiar" title="Duplicar">⧉</button>
+                    <button class="mini mini--peligro" type="button" id="btnBloqueBorrar" title="Eliminar">🗑</button>
+                  </span>
+                </div>
+
+                <div data-bloque="texto">
+                  <label class="campo-rotulo" for="bqTexto">Texto <small>(Enter parte la línea)</small></label>
+                  <textarea class="campo" id="bqTexto" rows="3"></textarea>
+                  <div class="fila--doble" style="margin-top:12px">
+                    <div>
+                      <label class="campo-rotulo" for="bqEstilo">Tipografía</label>
+                      <select class="campo" id="bqEstilo"></select>
+                    </div>
+                    <div>
+                      <label class="campo-rotulo" for="bqColor">Color de letra</label>
+                      <select class="campo" id="bqColor"></select>
+                    </div>
+                  </div>
+                  <div class="fila--doble" style="margin-top:12px">
+                    <div>
+                      <label class="campo-rotulo" for="bqTam">Tamaño <span id="valTam"></span></label>
+                      <input class="rango" type="range" id="bqTam" min="1" max="30" step="0.5">
+                    </div>
+                    <div>
+                      <label class="campo-rotulo" for="bqAlinear">Alineación</label>
+                      <select class="campo" id="bqAlinear"></select>
+                    </div>
+                  </div>
+                </div>
+
+                <div data-bloque="foto">
+                  <label class="campo-rotulo">Foto del bloque</label>
+                  <div class="soltar soltar--chica" id="zonaSoltarBloque" tabindex="0" role="button"
+                       aria-label="Arrastra una foto para este bloque">
+                    <p>Arrastra una foto o toca aquí</p>
+                    <input type="file" id="archivoBloque" accept="image/*" hidden>
+                  </div>
+                  <p class="bloque__texto" style="margin:8px 0 0">
+                    Toca sobre la foto en el lienzo para elegir qué parte se ve.
+                  </p>
+                  <label class="interruptor" style="margin-top:10px">
+                    <input type="checkbox" id="bqRedondo"><span></span> Recortar en círculo
+                  </label>
+                </div>
+
+                <div class="fila--doble" style="margin-top:12px">
+                  <div>
+                    <label class="campo-rotulo" for="bqAncho">Ancho <span id="valAncho"></span></label>
+                    <input class="rango" type="range" id="bqAncho" min="5" max="100" step="1">
+                  </div>
+                  <div>
+                    <label class="campo-rotulo" for="bqRotar">Inclinación <span id="valRotar"></span></label>
+                    <input class="rango" type="range" id="bqRotar" min="-20" max="20" step="1">
+                  </div>
+                </div>
+                <div data-bloque="foto">
+                  <label class="campo-rotulo" for="bqAlto">Alto <span id="valAlto"></span></label>
+                  <input class="rango" type="range" id="bqAlto" min="5" max="100" step="1">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fila">
+            <label class="interruptor">
+              <input type="checkbox" id="pgVisible" checked>
+              <span></span> Página publicada
+            </label>
+          </div>
+          <div class="acciones-editor">
+            <button class="boton boton--primario" id="btnGuardarPagina">Guardar página</button>
+            <button class="boton boton--linea" id="btnCerrarPagina">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── AJUSTES ── -->
+    <section class="vista" id="vista-ajustes">
+      <header class="vista__cabecera">
+        <h2>Ajustes</h2>
+        <p>Datos de tu marca y de contacto.</p>
+      </header>
+
+      <form class="bloque bloque--formulario" id="formAjustes" autocomplete="off">
+        <div class="fila fila--doble">
+          <div><label class="campo-rotulo" for="cMarca">Nombre de la marca</label><input class="campo" id="cMarca"></div>
+          <div><label class="campo-rotulo" for="cTemporada">Temporada</label><input class="campo" id="cTemporada"></div>
+        </div>
+        <div class="fila">
+          <label class="campo-rotulo" for="cLema">Lema de portada</label><input class="campo" id="cLema">
+        </div>
+        <div class="fila fila--doble">
+          <div>
+            <label class="campo-rotulo" for="cWhatsapp">WhatsApp <small>(indicativo + número, sin espacios)</small></label>
+            <input class="campo" id="cWhatsapp" inputmode="numeric" placeholder="573001234567">
+          </div>
+          <div><label class="campo-rotulo" for="cCorreo">Correo</label><input class="campo" id="cCorreo" type="email"></div>
+        </div>
+        <div class="fila">
+          <label class="campo-rotulo" for="cMensaje">
+            Mensaje de WhatsApp <small>puedes usar {marca}, {producto} y {precio}</small>
+          </label>
+          <input class="campo" id="cMensaje">
+        </div>
+        <div class="fila fila--doble">
+          <div><label class="campo-rotulo" for="cInstagram">Instagram</label><input class="campo" id="cInstagram"></div>
+          <div><label class="campo-rotulo" for="cTiktok">TikTok</label><input class="campo" id="cTiktok"></div>
+        </div>
+        <div class="fila fila--doble">
+          <div><label class="campo-rotulo" for="cCiudad">Ciudad</label><input class="campo" id="cCiudad"></div>
+          <div><label class="campo-rotulo" for="cHorarios">Horarios</label><input class="campo" id="cHorarios"></div>
+        </div>
+        <div class="fila fila--doble">
+          <div>
+            <label class="campo-rotulo" for="cMoneda">Moneda</label>
+            <select class="campo" id="cMoneda">
+              <option value="COP">Peso colombiano (COP)</option>
+              <option value="MXN">Peso mexicano (MXN)</option>
+              <option value="ARS">Peso argentino (ARS)</option>
+              <option value="CLP">Peso chileno (CLP)</option>
+              <option value="PEN">Sol peruano (PEN)</option>
+              <option value="USD">Dólar (USD)</option>
+              <option value="EUR">Euro (EUR)</option>
+            </select>
+          </div>
+          <div>
+            <label class="campo-rotulo" for="cSegundos">Segundos por página en lectura automática</label>
+            <input class="campo" id="cSegundos" type="number" min="2" max="30">
+          </div>
+        </div>
+
+        <h3 class="bloque__titulo">Contraseña del panel</h3>
+        <div class="fila fila--doble">
+          <div><label class="campo-rotulo" for="cClave1">Nueva contraseña</label><input class="campo" id="cClave1" type="password" autocomplete="new-password"></div>
+          <div><label class="campo-rotulo" for="cClave2">Repítela</label><input class="campo" id="cClave2" type="password" autocomplete="new-password"></div>
+        </div>
+
+        <div class="acciones-editor">
+          <button class="boton boton--primario" type="submit">Guardar ajustes</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ── RESPALDO ── -->
+    <section class="vista" id="vista-datos">
+      <header class="vista__cabecera">
+        <h2>Respaldo</h2>
+        <p>Publica tu catálogo, guarda una copia o pásala a otro computador.</p>
+      </header>
+
+      <div class="bloque" style="margin-bottom:22px">
+        <h3 class="bloque__titulo">Publicar para compartir el link</h3>
+        <p class="bloque__texto">
+          Tus prendas viven en <strong>este</strong> navegador. Para que se vean en
+          el celular de tus clientas hay que publicarlas. Son tres pasos:
+        </p>
+        <ol class="pasos">
+          <li>Toca <strong>Generar datos.json</strong>. Se descarga un archivo.</li>
+          <li>Mételo en la carpeta del proyecto, al lado de <code>index.html</code>.</li>
+          <li>Vuelve a subir la carpeta a Netlify. Listo: el link ya muestra tu catálogo.</li>
+        </ol>
+        <button class="boton boton--primario" id="btnPublicar">Generar datos.json</button>
+        <p class="bloque__texto" id="pesoPublicar" style="margin:12px 0 0"></p>
+      </div>
+
+      <div class="dos-columnas">
+        <div class="bloque">
+          <h3 class="bloque__titulo">Exportar</h3>
+          <p class="bloque__texto">Descarga un archivo <code>.json</code> con productos, páginas, ajustes y fotos.</p>
+          <button class="boton boton--primario" id="btnExportar">Descargar respaldo</button>
+        </div>
+        <div class="bloque">
+          <h3 class="bloque__titulo">Importar</h3>
+          <p class="bloque__texto">Reemplaza el contenido actual con el de un respaldo.</p>
+          <input type="file" id="archivoImportar" accept="application/json" hidden>
+          <button class="boton boton--linea" id="btnImportar">Elegir archivo…</button>
+        </div>
+      </div>
+
+      <div class="bloque bloque--peligro">
+        <h3 class="bloque__titulo">Volver al contenido de ejemplo</h3>
+        <p class="bloque__texto">Borra tus productos y páginas y deja la revista como venía al principio.</p>
+        <button class="boton boton--peligro" id="btnRestablecer">Restablecer</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ══════════ MODAL DE RECORTE ══════════ -->
+<div class="modal" id="modalRecorte" role="dialog" aria-modal="true" aria-labelledby="tituloRecorte" hidden>
+  <div class="modal__caja">
+    <button class="modal__cerrar" data-cerrar aria-label="Cerrar">&times;</button>
+    <h2 class="modal__titulo" id="tituloRecorte">Ajusta la foto</h2>
+    <p class="modal__ayuda">Arrastra la imagen para elegir qué parte se ve. Relación de revista 3:4.</p>
+    <div class="recorte" id="marcoRecorte">
+      <img id="imgRecorte" alt="Foto que estás recortando">
+    </div>
+    <label class="campo-rotulo" for="zoomRecorte">Acercar</label>
+    <input type="range" id="zoomRecorte" min="100" max="260" value="100" class="rango">
+    <div class="modal__pie">
+      <span class="modal__total" id="infoRecorte"></span>
+      <button class="boton boton--primario" id="btnAplicarRecorte">Usar esta foto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL DE CONFIRMACIÓN ══════════ -->
+<div class="modal" id="modalConfirmar" role="dialog" aria-modal="true" aria-labelledby="tituloConfirmar" hidden>
+  <div class="modal__caja modal__caja--angosta">
+    <h2 class="modal__titulo" id="tituloConfirmar">¿Seguro?</h2>
+    <p class="modal__ayuda" id="textoConfirmar"></p>
+    <div class="modal__pie modal__pie--derecha">
+      <button class="boton boton--linea" id="btnNo">Cancelar</button>
+      <button class="boton boton--peligro" id="btnSi">Sí, continuar</button>
+    </div>
+  </div>
+</div>
+
+<div class="tostadas" id="tostadas" role="status" aria-live="polite"></div>
+
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>
