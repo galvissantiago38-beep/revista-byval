@@ -172,6 +172,7 @@ const CONFIG_INICIAL = {
   horarios: 'Lunes a sábado · 9:00 a 18:00',
   ciudad: 'Hecho en Colombia',
   moneda: 'COP',
+  sonidoHoja: 'suave',        // suave | revista | grueso
   // Seguridad básica de fachada; para seguridad real hace falta un backend.
   claveAdmin: 'admin123'
 };

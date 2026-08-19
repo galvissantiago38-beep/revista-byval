@@ -7,6 +7,7 @@ import {
   ESTILOS, COLORES, ALINEACIONES, PLANTILLAS,
   bloqueTexto, bloqueFoto, editorialEnBlanco, pintarEditorial
 } from './editorial.js';
+import { SonidoPapel } from './flipbook.js';
 
 const $  = (sel, raiz = document) => raiz.querySelector(sel);
 const $$ = (sel, raiz = document) => [...raiz.querySelectorAll(sel)];
@@ -1264,7 +1265,18 @@ function guardarPagina () {
    ═══════════════════════════════════════════════════════════════ */
 function conectarAjustes () {
   $('#formAjustes').addEventListener('submit', guardarAjustes);
+
+  // Escuchar el papel elegido sin tener que guardar ni abrir la revista.
+  const probar = () => {
+    sonidoPrueba.silenciado = false;
+    sonidoPrueba.usarPapel($('#cSonido').value);
+    sonidoPrueba.pasar();
+  };
+  $('#btnProbarSonido').addEventListener('click', probar);
+  $('#cSonido').addEventListener('change', probar);
 }
+
+const sonidoPrueba = new SonidoPapel();
 
 function pintarAjustes () {
   const c = estado.config;
@@ -1279,6 +1291,7 @@ function pintarAjustes () {
   $('#cCiudad').value = c.ciudad || '';
   $('#cHorarios').value = c.horarios || '';
   $('#cMoneda').value = c.moneda || 'COP';
+  $('#cSonido').value = c.sonidoHoja || 'suave';
 }
 
 function guardarAjustes (e) {
@@ -1298,7 +1311,8 @@ function guardarAjustes (e) {
     tiktok: $('#cTiktok').value.trim(),
     ciudad: $('#cCiudad').value.trim(),
     horarios: $('#cHorarios').value.trim(),
-    moneda: $('#cMoneda').value
+    moneda: $('#cMoneda').value,
+    sonidoHoja: $('#cSonido').value
   };
   if (clave1) parcial.claveAdmin = clave1;
 

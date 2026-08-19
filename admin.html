@@ -416,6 +416,17 @@
         </div>
         <div class="fila fila--doble">
           <div>
+            <label class="campo-rotulo" for="cSonido">Sonido al pasar la hoja</label>
+            <div style="display:flex; gap:8px">
+              <select class="campo" id="cSonido">
+                <option value="suave">Suave — hoja fina, discreto</option>
+                <option value="revista">Revista — papel satinado, crujiente</option>
+                <option value="grueso">Grueso — cartulina, más grave</option>
+              </select>
+              <button class="boton boton--linea" type="button" id="btnProbarSonido">Probar</button>
+            </div>
+          </div>
+          <div>
             <label class="campo-rotulo" for="cMoneda">Moneda</label>
             <select class="campo" id="cMoneda">
               <option value="COP">Peso colombiano (COP)</option>

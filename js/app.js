@@ -23,7 +23,7 @@ const $  = (sel, raiz = document) => raiz.querySelector(sel);
 const $$ = (sel, raiz = document) => [...raiz.querySelectorAll(sel)];
 
 let flipbook = null;
-const sonido = new SonidoPapel();
+let sonido = new SonidoPapel();
 
 /* ═══════════════════════════════════════════════════════════════
    ARRANQUE
@@ -36,6 +36,7 @@ async function arrancar () {
   estado.imagenes = await Datos.mapaDeImagenes();
   estado.deseos = new Set(Datos.obtenerDeseos());
 
+  sonido.usarPapel(estado.config.sonidoHoja);
   document.title = `${estado.config.marca} — ${estado.config.temporada}`;
   $('#marcaCabecera').textContent = estado.config.marca;
 

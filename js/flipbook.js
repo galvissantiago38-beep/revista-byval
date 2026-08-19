@@ -9,12 +9,32 @@
    sombra dinámica impulsada por la variable animable --p (0 → 1).
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Sonido de hoja generado con WebAudio (ruido filtrado) ───────── */
+/* ── Sonido de hoja generado con WebAudio ─────────────────────────
+   Tres papeles distintos. Se elige desde el panel (Ajustes).
+     · suave   — hoja fina y discreta, casi un roce
+     · revista — papel satinado, crujiente
+     · grueso  — cartulina, más grave y lento
+   Cada uno cambia cuántos chasquidos tiene, qué tan agudo suena y
+   cuánto dura, que es lo que distingue un papel de otro al oído. */
+
+export const PAPELES = {
+  suave:   { nombre: 'Suave',   dur: 0.24, chasquidos: 8,  corte: 1300, brillo: 2.5, vol: 0.17, eco: 0.28, roce: 0.6 },
+  revista: { nombre: 'Revista', dur: 0.32, chasquidos: 30, corte: 850,  brillo: 6,   vol: 0.26, eco: 0.42, roce: 0.45 },
+  grueso:  { nombre: 'Grueso',  dur: 0.44, chasquidos: 16, corte: 380,  brillo: 4,   vol: 0.30, eco: 0.5,  roce: 0.7 }
+};
+
 export class SonidoPapel {
-  constructor () {
+  constructor (tipo = 'suave') {
     this.silenciado = localStorage.getItem('revista.mudo') === '1';
     this.ctx = null;
     this.ruido = null;
+    this.papel = PAPELES[tipo] || PAPELES.suave;
+  }
+
+  /** Cambiar de papel en caliente (lo usa la prueba del panel). */
+  usarPapel (tipo) {
+    this.papel = PAPELES[tipo] || PAPELES.suave;
+    if (this.ctx) this.ruido = this.#crearRuido();
   }
 
   /** El contexto de audio solo puede crearse tras un gesto del usuario. */
@@ -34,7 +54,8 @@ export class SonidoPapel {
    */
   #crearRuido () {
     const sr = this.ctx.sampleRate;
-    const largo = Math.floor(sr * 0.32);
+    const p = this.papel;
+    const largo = Math.floor(sr * p.dur);
     const buffer = this.ctx.createBuffer(1, largo, sr);
     const d = buffer.getChannelData(0);
 
@@ -46,11 +67,11 @@ export class SonidoPapel {
       const irregular = 0.4 + 0.6 * Math.abs(paseo);
       const ataque = Math.min(1, i / (sr * 0.004));
       const caida = Math.pow(1 - t, 2.4);
-      d[i] = (Math.random() * 2 - 1) * ataque * caida * irregular * 0.45;
+      d[i] = (Math.random() * 2 - 1) * ataque * caida * irregular * p.roce;
     }
 
     // Capa 2 — los crujidos: chasquidos cortos, más juntos al principio.
-    for (let c = 0; c < 30; c++) {
+    for (let c = 0; c < p.chasquidos; c++) {
       const inicio = Math.floor(Math.pow(Math.random(), 1.7) * largo * 0.88);
       const duracion = Math.floor(sr * (0.0008 + Math.random() * 0.0035));
       const fuerza = (0.3 + Math.random() * 0.7) * (1 - inicio / largo);
@@ -82,36 +103,37 @@ export class SonidoPapel {
     if (this.ctx.state === 'suspended') this.ctx.resume();
 
     const t = this.ctx.currentTime;
-    this.#golpe(t, 1);              // el roce principal
-    this.#golpe(t + 0.11, 0.42);    // la hoja al asentarse, más flojito
+    this.#golpe(t, 1);                             // el roce principal
+    this.#golpe(t + this.papel.dur * 0.35, this.papel.eco);  // la hoja al asentarse
   }
 
   /** Un solo crujido. `fuerza` sirve para que el segundo suene más lejano. */
   #golpe (cuando, fuerza) {
+    const p = this.papel;
     const fuente = this.ctx.createBufferSource();
     fuente.buffer = this.ruido;
     fuente.playbackRate.value = 0.88 + Math.random() * 0.28;
 
-    // Sin graves: el papel no tiene cuerpo, solo aire y crujido.
+    // Cuánto grave dejamos pasar: un papel fino no tiene cuerpo, uno grueso sí.
     const corte = this.ctx.createBiquadFilter();
     corte.type = 'highpass';
-    corte.frequency.value = 850;
+    corte.frequency.value = p.corte;
 
     // Realce donde vive el crujido, para que se reconozca como papel.
     const brillo = this.ctx.createBiquadFilter();
     brillo.type = 'peaking';
     brillo.frequency.value = 2600 + Math.random() * 1200;
     brillo.Q.value = 0.9;
-    brillo.gain.value = 6;
+    brillo.gain.value = p.brillo;
 
     const volumen = this.ctx.createGain();
     volumen.gain.setValueAtTime(0.0001, cuando);
-    volumen.gain.exponentialRampToValueAtTime(0.26 * fuerza, cuando + 0.015);
-    volumen.gain.exponentialRampToValueAtTime(0.0001, cuando + 0.3);
+    volumen.gain.exponentialRampToValueAtTime(p.vol * fuerza, cuando + 0.015);
+    volumen.gain.exponentialRampToValueAtTime(0.0001, cuando + p.dur * 0.95);
 
     fuente.connect(corte).connect(brillo).connect(volumen).connect(this.ctx.destination);
     fuente.start(cuando);
-    fuente.stop(cuando + 0.34);
+    fuente.stop(cuando + p.dur + 0.05);
   }
 }
 
