@@ -28,13 +28,44 @@ const estado = {
    ═══════════════════════════════════════════════════════════════ */
 const CLAVE_SESION = 'revista.sesionAdmin';
 
+/**
+ * El panel solo tiene sentido en el computador de la tienda.
+ * En el sitio publicado no serviría de nada (los cambios se quedarían en el
+ * navegador de quien entre, sin tocar el catálogo publicado) y además la
+ * contraseña no se puede comprobar contra ningún servidor. Así que ahí no abre.
+ */
+function esEquipoDeLaTienda () {
+  const h = location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '' ||
+         /^192\.168\./.test(h) || /^10\./.test(h) ||
+         /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+}
+
 async function arrancar () {
+  if (!esEquipoDeLaTienda()) return mostrarSoloLocal();
+
   await Datos.iniciar();
   estado.config = Datos.obtenerConfig();
 
   $('#formAcceso').addEventListener('submit', comprobarClave);
 
   if (sessionStorage.getItem(CLAVE_SESION) === '1') entrar();
+}
+
+function mostrarSoloLocal () {
+  const caja = $('#formAcceso');
+  caja.innerHTML = `
+    <h1 class="acceso__titulo">Panel no disponible aquí</h1>
+    <p class="acceso__ayuda">
+      El panel se usa desde el computador de la tienda, abriendo
+      <strong>ABRIR REVISTA.bat</strong> y entrando a
+      <code>localhost:5173/admin.html</code>.
+    </p>
+    <a class="boton boton--primario" href="index.html">Ir a la revista</a>
+    <p class="acceso__nota">
+      Editar desde aquí no cambiaría el catálogo publicado: los datos viven en
+      el navegador de cada quien.
+    </p>`;
 }
 
 function comprobarClave (e) {
