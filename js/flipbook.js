@@ -26,20 +26,45 @@ export class SonidoPapel {
     this.ruido = this.#crearRuido();
   }
 
+  /**
+   * Un papel de verdad no hace "shhh" parejo: cruje a tirones. El sonido son
+   * dos cosas sumadas — el roce de la hoja contra la de abajo, con un volumen
+   * que abre y cierra irregularmente, y encima un puñado de chasquidos secos
+   * repartidos sin orden, que es lo que el oído reconoce como papel.
+   */
   #crearRuido () {
-    const segundos = 0.5;
-    const largo = Math.floor(this.ctx.sampleRate * segundos);
-    const buffer = this.ctx.createBuffer(1, largo, this.ctx.sampleRate);
-    const datos = buffer.getChannelData(0);
-    // Ruido rosado aproximado: suena a papel, no a estática de radio.
-    let b0 = 0, b1 = 0, b2 = 0;
+    const sr = this.ctx.sampleRate;
+    const largo = Math.floor(sr * 0.32);
+    const buffer = this.ctx.createBuffer(1, largo, sr);
+    const d = buffer.getChannelData(0);
+
+    // Capa 1 — el roce, con una envolvente que tiembla.
+    let paseo = 0;
     for (let i = 0; i < largo; i++) {
-      const blanco = Math.random() * 2 - 1;
-      b0 = 0.99765 * b0 + blanco * 0.0990460;
-      b1 = 0.96300 * b1 + blanco * 0.2965164;
-      b2 = 0.57000 * b2 + blanco * 1.0526913;
-      datos[i] = (b0 + b1 + b2 + blanco * 0.1848) * 0.22;
+      const t = i / largo;
+      paseo = Math.max(-1, Math.min(1, (paseo + (Math.random() * 2 - 1) * 0.07) * 0.985));
+      const irregular = 0.4 + 0.6 * Math.abs(paseo);
+      const ataque = Math.min(1, i / (sr * 0.004));
+      const caida = Math.pow(1 - t, 2.4);
+      d[i] = (Math.random() * 2 - 1) * ataque * caida * irregular * 0.45;
     }
+
+    // Capa 2 — los crujidos: chasquidos cortos, más juntos al principio.
+    for (let c = 0; c < 30; c++) {
+      const inicio = Math.floor(Math.pow(Math.random(), 1.7) * largo * 0.88);
+      const duracion = Math.floor(sr * (0.0008 + Math.random() * 0.0035));
+      const fuerza = (0.3 + Math.random() * 0.7) * (1 - inicio / largo);
+      for (let j = 0; j < duracion && inicio + j < largo; j++) {
+        const caida = 1 - j / duracion;
+        d[inicio + j] += (Math.random() * 2 - 1) * fuerza * caida * caida;
+      }
+    }
+
+    // Normalizamos para que no sature al pasar por los filtros.
+    let pico = 0;
+    for (let i = 0; i < largo; i++) pico = Math.max(pico, Math.abs(d[i]));
+    if (pico > 0) for (let i = 0; i < largo; i++) d[i] /= pico;
+
     return buffer;
   }
 
@@ -49,7 +74,7 @@ export class SonidoPapel {
     return this.silenciado;
   }
 
-  /** Un roce corto de papel: barrido de filtro + envolvente rápida. */
+  /** El crujido de una hoja al pasar. */
   pasar () {
     if (this.silenciado) return;
     this.despertar();
@@ -57,25 +82,36 @@ export class SonidoPapel {
     if (this.ctx.state === 'suspended') this.ctx.resume();
 
     const t = this.ctx.currentTime;
+    this.#golpe(t, 1);              // el roce principal
+    this.#golpe(t + 0.11, 0.42);    // la hoja al asentarse, más flojito
+  }
+
+  /** Un solo crujido. `fuerza` sirve para que el segundo suene más lejano. */
+  #golpe (cuando, fuerza) {
     const fuente = this.ctx.createBufferSource();
     fuente.buffer = this.ruido;
-    fuente.playbackRate.value = 0.9 + Math.random() * 0.3;
+    fuente.playbackRate.value = 0.88 + Math.random() * 0.28;
 
-    const filtro = this.ctx.createBiquadFilter();
-    filtro.type = 'bandpass';
-    filtro.Q.value = 0.8;
-    filtro.frequency.setValueAtTime(900, t);
-    filtro.frequency.exponentialRampToValueAtTime(3400, t + 0.18);
-    filtro.frequency.exponentialRampToValueAtTime(1200, t + 0.42);
+    // Sin graves: el papel no tiene cuerpo, solo aire y crujido.
+    const corte = this.ctx.createBiquadFilter();
+    corte.type = 'highpass';
+    corte.frequency.value = 850;
+
+    // Realce donde vive el crujido, para que se reconozca como papel.
+    const brillo = this.ctx.createBiquadFilter();
+    brillo.type = 'peaking';
+    brillo.frequency.value = 2600 + Math.random() * 1200;
+    brillo.Q.value = 0.9;
+    brillo.gain.value = 6;
 
     const volumen = this.ctx.createGain();
-    volumen.gain.setValueAtTime(0.0001, t);
-    volumen.gain.exponentialRampToValueAtTime(0.24, t + 0.045);
-    volumen.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+    volumen.gain.setValueAtTime(0.0001, cuando);
+    volumen.gain.exponentialRampToValueAtTime(0.26 * fuerza, cuando + 0.015);
+    volumen.gain.exponentialRampToValueAtTime(0.0001, cuando + 0.3);
 
-    fuente.connect(filtro).connect(volumen).connect(this.ctx.destination);
-    fuente.start(t);
-    fuente.stop(t + 0.45);
+    fuente.connect(corte).connect(brillo).connect(volumen).connect(this.ctx.destination);
+    fuente.start(cuando);
+    fuente.stop(cuando + 0.34);
   }
 }
 

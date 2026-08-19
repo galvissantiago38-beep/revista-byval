@@ -16,7 +16,6 @@ const estado = {
   deseos: new Set(),
   look: new Set(),
   paginaLook: null,
-  autolectura: null,
   clicsLogo: 0
 };
 
@@ -549,7 +548,6 @@ function conectarInterfaz () {
   $('#btnBuscar').addEventListener('click', () => abrirModal('#modalBuscar', '#campoBuscar'));
   $('#btnDeseos').addEventListener('click', abrirDeseos);
   $('#btnLook').addEventListener('click', abrirLook);
-  $('#btnAuto').addEventListener('click', alternarAutolectura);
   $('#btnSonido').addEventListener('click', alternarSonido);
   $('#btnCompartir').addEventListener('click', compartir);
   $('#btnImprimir').addEventListener('click', imprimir);
@@ -607,7 +605,6 @@ function alPulsarTecla (e) {
     ArrowLeft: () => flipbook.anterior(),
     Home: () => flipbook.irAPagina(0),
     End: () => flipbook.irAPagina(estado.elementos.length - 1),
-    ' ': alternarAutolectura,
     b: () => abrirModal('#modalBuscar', '#campoBuscar'),
     f: abrirDeseos,
     l: abrirLook,
@@ -869,7 +866,6 @@ function alCambiarPagina ({ pagina, visibles, total, alInicio, alFinal }) {
   actualizarContadorDeseos();
   actualizarEnlace(pagina);
 
-  if (alFinal) detenerAutolectura();
 }
 
 /** Mantiene ?pagina= en la barra de direcciones para poder compartir. */
@@ -917,7 +913,7 @@ async function compartir () {
   }
 }
 
-/* ── Sonido, pantalla completa, autolectura ─────────────────── */
+/* ── Sonido y pantalla completa ─────────────────────────────── */
 function alternarSonido () {
   const mudo = sonido.alternarSilencio();
   $('#btnSonido').classList.toggle('mudo', mudo);
@@ -928,25 +924,6 @@ function alternarSonido () {
 function pantallaCompleta () {
   if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
   else document.exitFullscreen?.();
-}
-
-function alternarAutolectura () {
-  if (estado.autolectura) return detenerAutolectura();
-  const segundos = Number(estado.config.segundosAutolectura) || 6;
-  $('#btnAuto').classList.add('activo');
-  $('#btnAuto').setAttribute('aria-label', 'Pausar lectura automática');
-  avisar('Lectura automática activada');
-  estado.autolectura = setInterval(() => {
-    if (!flipbook.siguiente()) detenerAutolectura();
-  }, segundos * 1000);
-}
-
-function detenerAutolectura () {
-  if (!estado.autolectura) return;
-  clearInterval(estado.autolectura);
-  estado.autolectura = null;
-  $('#btnAuto').classList.remove('activo');
-  $('#btnAuto').setAttribute('aria-label', 'Lectura automática');
 }
 
 /* ── Versión imprimible (Imprimir → Guardar como PDF) ───────── */

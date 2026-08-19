@@ -1279,7 +1279,6 @@ function pintarAjustes () {
   $('#cCiudad').value = c.ciudad || '';
   $('#cHorarios').value = c.horarios || '';
   $('#cMoneda').value = c.moneda || 'COP';
-  $('#cSegundos').value = c.segundosAutolectura || 6;
 }
 
 function guardarAjustes (e) {
@@ -1299,8 +1298,7 @@ function guardarAjustes (e) {
     tiktok: $('#cTiktok').value.trim(),
     ciudad: $('#cCiudad').value.trim(),
     horarios: $('#cHorarios').value.trim(),
-    moneda: $('#cMoneda').value,
-    segundosAutolectura: Number($('#cSegundos').value) || 6
+    moneda: $('#cMoneda').value
   };
   if (clave1) parcial.claveAdmin = clave1;
 
