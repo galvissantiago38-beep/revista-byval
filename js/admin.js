@@ -2,12 +2,13 @@
    ADMIN — panel de administración de la revista
    ═══════════════════════════════════════════════════════════════ */
 
-import { Datos, formatearPrecio, nuevoId, marcadorSVG } from './data.js';
+import { Datos, formatearPrecio, nuevoId, marcadorSVG, estadoDeConexion } from './data.js';
 import {
   ESTILOS, COLORES, ALINEACIONES, PLANTILLAS,
   bloqueTexto, bloqueFoto, editorialEnBlanco, pintarEditorial
 } from './editorial.js';
 import { SonidoPapel } from './flipbook.js';
+import * as Nube from './nube.js';
 
 const $  = (sel, raiz = document) => raiz.querySelector(sel);
 const $$ = (sel, raiz = document) => [...raiz.querySelectorAll(sel)];
@@ -27,72 +28,73 @@ const estado = {
 /* ═══════════════════════════════════════════════════════════════
    ACCESO
    ═══════════════════════════════════════════════════════════════ */
-const CLAVE_SESION = 'revista.sesionAdmin';
-
 /**
- * El panel solo tiene sentido en el computador de la tienda.
- * En el sitio publicado no serviría de nada (los cambios se quedarían en el
- * navegador de quien entre, sin tocar el catálogo publicado) y además la
- * contraseña no se puede comprobar contra ningún servidor. Así que ahí no abre.
+ * El acceso ahora es de verdad: correo y contraseña contra Supabase.
+ * La sesión la guarda nube.js y se renueva sola, así que el panel se
+ * abre desde cualquier dispositivo sin volver a escribir la clave.
  */
-function esEquipoDeLaTienda () {
-  const h = location.hostname;
-  return h === 'localhost' || h === '127.0.0.1' || h === '' ||
-         /^192\.168\./.test(h) || /^10\./.test(h) ||
-         /^172\.(1[6-9]|2\d|3[01])\./.test(h);
-}
-
 async function arrancar () {
-  if (!esEquipoDeLaTienda()) return mostrarSoloLocal();
-
-  await Datos.iniciar();
-  estado.config = Datos.obtenerConfig();
-
   $('#formAcceso').addEventListener('submit', comprobarClave);
+  $('#btnCrearClave')?.addEventListener('click', crearClave);
 
-  if (sessionStorage.getItem(CLAVE_SESION) === '1') entrar();
+  if (Nube.haySesion()) return entrar();
 }
 
-function mostrarSoloLocal () {
-  const caja = $('#formAcceso');
-  caja.innerHTML = `
-    <h1 class="acceso__titulo">Panel no disponible aquí</h1>
-    <p class="acceso__ayuda">
-      El panel se usa desde el computador de la tienda, abriendo
-      <strong>ABRIR REVISTA.bat</strong> y entrando a
-      <code>localhost:5173/admin.html</code>.
-    </p>
-    <a class="boton boton--primario" href="index.html">Ir a la revista</a>
-    <p class="acceso__nota">
-      Editar desde aquí no cambiaría el catálogo publicado: los datos viven en
-      el navegador de cada quien.
-    </p>`;
+function mostrarError (texto) {
+  const caja = $('#errorAcceso');
+  caja.textContent = texto;
+  caja.hidden = false;
 }
 
-function comprobarClave (e) {
+async function comprobarClave (e) {
   e.preventDefault();
-  const escrita = $('#claveAcceso').value;
-  if (escrita === estado.config.claveAdmin) {
-    sessionStorage.setItem(CLAVE_SESION, '1');
-    entrar();
-  } else {
-    $('#errorAcceso').hidden = false;
+  const boton = $('#formAcceso button[type=submit]');
+  const antes = boton.textContent;
+  boton.textContent = 'Entrando…';
+  boton.disabled = true;
+  $('#errorAcceso').hidden = true;
+
+  try {
+    await Nube.entrar($('#correoAcceso').value, $('#claveAcceso').value);
+    await entrar();
+  } catch (err) {
+    mostrarError(err.message);
     $('#claveAcceso').value = '';
     $('#claveAcceso').focus();
+  } finally {
+    boton.textContent = antes;
+    boton.disabled = false;
+  }
+}
+
+/** Primera vez: crea la contraseña del correo autorizado. */
+async function crearClave () {
+  const correo = $('#correoAcceso').value.trim();
+  const clave = $('#claveAcceso').value;
+  $('#errorAcceso').hidden = true;
+
+  if (!correo) return mostrarError('Escribe primero tu correo.');
+  if (clave.length < 8) return mostrarError('La contraseña debe tener al menos 8 caracteres.');
+
+  try {
+    await Nube.registrar(correo, clave);
+    await Nube.entrar(correo, clave);
+    await entrar();
+  } catch (err) {
+    mostrarError(err.message);
   }
 }
 
 async function entrar () {
-  // Este navegador es el de la tienda: manda su localStorage, no el datos.json publicado.
-  Datos.marcarComoAdmin();
   $('#acceso').hidden = true;
   $('#panel').hidden = false;
   await cargarTodo();
   conectarPanel();
+  $('#correoSesion').textContent = Nube.correoDeSesion() || '';
 }
 
-function salir () {
-  sessionStorage.removeItem(CLAVE_SESION);
+async function salir () {
+  await Nube.salir();
   location.reload();
 }
 
@@ -111,6 +113,33 @@ async function cargarTodo () {
   pintarListaPaginas();
   pintarAjustes();
   pintarCategorias();
+  pintarEstadoNube();
+}
+
+/** Aviso claro si estamos trabajando sin conexión con la base. */
+function pintarEstadoNube () {
+  const { enLinea, motivo } = estadoDeConexion();
+  const caja = $("#estadoNube");
+  if (!caja) return;
+  caja.textContent = enLinea
+    ? "Conectado a la nube. Lo que guardes se ve enseguida en el link público."
+    : `Sin conexión con la base (${motivo}). Estás viendo una copia guardada y los cambios NO se van a guardar.`;
+  caja.style.color = enLinea ? "var(--acento)" : "var(--peligro)";
+}
+
+/**
+ * Envuelve cualquier cambio que tenga que llegar a la base.
+ * Si la nube falla (sin internet, sesión vencida, correo no autorizado),
+ * lo dice con todas sus letras en vez de fingir que se guardó.
+ */
+async function conGuardado (trabajo, mensajeExito) {
+  try {
+    await trabajo();
+    if (mensajeExito) avisar(mensajeExito, true);
+  } catch (err) {
+    console.error(err);
+    avisar(err.message || 'No se pudo guardar');
+  }
 }
 
 function urlDe (id, pista = {}) {
@@ -318,29 +347,31 @@ function guardarProducto (e) {
   if (!p.nombre) return avisar('Ponle un nombre a la prenda');
 
   delete p.nuevo;
-  Datos.guardarProducto(structuredClone(p));
-  cargarTodo().then(() => {
+  conGuardado(async () => {
+    await Datos.guardarProducto(structuredClone(p));
+    await cargarTodo();
     abrirProducto(structuredClone(Datos.obtenerProducto(p.id)));
-    avisar('Prenda guardada', true);
-  });
+  }, 'Prenda guardada');
 }
 
 function duplicarProducto () {
-  const copia = Datos.duplicarProducto(estado.productoActual.id);
-  if (!copia) return;
-  cargarTodo().then(() => {
+  conGuardado(async () => {
+    const copia = await Datos.duplicarProducto(estado.productoActual.id);
+    if (!copia) return;
+    await cargarTodo();
     abrirProducto(structuredClone(copia));
-    avisar('Prenda duplicada', true);
-  });
+  }, 'Prenda duplicada');
 }
 
 function borrarProducto () {
   const p = estado.productoActual;
   confirmar(`Se eliminará “${p.nombre}” y saldrá de todas las páginas donde aparece.`, () => {
-    Datos.eliminarProducto(p.id);
-    estado.productoActual = null;
-    $('#editorProducto').hidden = true;
-    cargarTodo().then(() => avisar('Prenda eliminada', true));
+    conGuardado(async () => {
+      await Datos.eliminarProducto(p.id);
+      estado.productoActual = null;
+      $('#editorProducto').hidden = true;
+      await cargarTodo();
+    }, 'Prenda eliminada');
   });
 }
 
@@ -1100,10 +1131,9 @@ function conectarArrastrePaginas (lista) {
     if (origen === null || Number.isNaN(destino) || origen === destino) return;
     const [movida] = estado.paginas.splice(origen, 1);
     estado.paginas.splice(destino, 0, movida);
-    Datos.guardarPaginas(estado.paginas);
     pintarListaPaginas();
     pintarTablero();
-    avisar('Orden actualizado', true);
+    conGuardado(() => Datos.guardarPaginas(estado.paginas), 'Orden actualizado');
   });
 }
 
@@ -1112,8 +1142,8 @@ function moverPagina (indice, delta) {
   if (destino < 0 || destino >= estado.paginas.length) return;
   const [movida] = estado.paginas.splice(indice, 1);
   estado.paginas.splice(destino, 0, movida);
-  Datos.guardarPaginas(estado.paginas);
   pintarListaPaginas();
+  conGuardado(() => Datos.guardarPaginas(estado.paginas));
 }
 
 function agregarPagina () {
@@ -1129,35 +1159,32 @@ function agregarPagina () {
   if (tipo === 'editorial') Object.assign(nueva, editorialEnBlanco());
 
   estado.paginas.push(nueva);
-  Datos.guardarPaginas(estado.paginas);
   pintarListaPaginas();
   pintarTablero();
   abrirPagina(nueva);
-  avisar('Página agregada', true);
+  conGuardado(() => Datos.guardarPaginas(estado.paginas), 'Página agregada');
 }
 
 function duplicarPagina (indice) {
   const copia = structuredClone(estado.paginas[indice]);
   copia.id = nuevoId('pg');
   estado.paginas.splice(indice + 1, 0, copia);
-  Datos.guardarPaginas(estado.paginas);
   pintarListaPaginas();
   pintarTablero();
-  avisar('Página duplicada', true);
+  conGuardado(() => Datos.guardarPaginas(estado.paginas), 'Página duplicada');
 }
 
 function borrarPagina (indice) {
   const pg = estado.paginas[indice];
   confirmar(`Se eliminará la página ${indice + 1} (${ETIQUETAS_TIPO[pg.tipo] || pg.tipo}).`, () => {
     estado.paginas.splice(indice, 1);
-    Datos.guardarPaginas(estado.paginas);
     if (estado.paginaActual?.id === pg.id) {
       estado.paginaActual = null;
       $('#editorPagina').hidden = true;
     }
     pintarListaPaginas();
     pintarTablero();
-    avisar('Página eliminada', true);
+    conGuardado(() => Datos.guardarPaginas(estado.paginas), 'Página eliminada');
   });
 }
 
@@ -1256,8 +1283,10 @@ function guardarPagina () {
 
   const i = estado.paginas.findIndex(p => p.id === pg.id);
   if (i >= 0) estado.paginas[i] = pg;
-  Datos.guardarPaginas(estado.paginas);
-  cargarTodo().then(() => avisar('Página guardada', true));
+  conGuardado(async () => {
+    await Datos.guardarPaginas(estado.paginas);
+    await cargarTodo();
+  }, 'Página guardada');
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1265,6 +1294,7 @@ function guardarPagina () {
    ═══════════════════════════════════════════════════════════════ */
 function conectarAjustes () {
   $('#formAjustes').addEventListener('submit', guardarAjustes);
+  $('#btnCambiarClave').addEventListener('click', cambiarClave);
 
   // Escuchar el papel elegido sin tener que guardar ni abrir la revista.
   const probar = () => {
@@ -1277,6 +1307,20 @@ function conectarAjustes () {
 }
 
 const sonidoPrueba = new SonidoPapel();
+
+async function cambiarClave () {
+  const nueva = $('#cClaveNueva').value;
+  const repetida = $('#cClaveNueva2').value;
+
+  if (nueva.length < 8) return avisar('La contraseña debe tener al menos 8 caracteres');
+  if (nueva !== repetida) return avisar('Las dos contraseñas no coinciden');
+
+  await conGuardado(async () => {
+    await Nube.cambiarClave(nueva);
+    $('#cClaveNueva').value = '';
+    $('#cClaveNueva2').value = '';
+  }, 'Contraseña cambiada');
+}
 
 function pintarAjustes () {
   const c = estado.config;
@@ -1296,10 +1340,6 @@ function pintarAjustes () {
 
 function guardarAjustes (e) {
   e.preventDefault();
-  const clave1 = $('#cClave1').value;
-  const clave2 = $('#cClave2').value;
-  if (clave1 && clave1 !== clave2) return avisar('Las dos contraseñas no coinciden');
-
   const parcial = {
     marca: $('#cMarca').value.trim(),
     temporada: $('#cTemporada').value.trim(),
@@ -1314,43 +1354,27 @@ function guardarAjustes (e) {
     moneda: $('#cMoneda').value,
     sonidoHoja: $('#cSonido').value
   };
-  if (clave1) parcial.claveAdmin = clave1;
-
-  Datos.guardarConfig(parcial);
-  $('#cClave1').value = '';
-  $('#cClave2').value = '';
-  cargarTodo().then(() => avisar(clave1 ? 'Ajustes y contraseña guardados' : 'Ajustes guardados', true));
+  conGuardado(async () => {
+    await Datos.guardarConfig(parcial);
+    await cargarTodo();
+  }, 'Ajustes guardados');
 }
 
 /* ═══════════════════════════════════════════════════════════════
    RESPALDO
    ═══════════════════════════════════════════════════════════════ */
 function conectarRespaldo () {
-  $('#btnPublicar').addEventListener('click', publicar);
   $('#btnExportar').addEventListener('click', exportar);
   $('#btnImportar').addEventListener('click', () => $('#archivoImportar').click());
   $('#archivoImportar').addEventListener('change', importar);
   $('#btnRestablecer').addEventListener('click', () => {
     confirmar('Se borrarán tus productos y páginas y volverá el contenido de ejemplo.', async () => {
-      Datos.restablecer();
-      await cargarTodo();
-      avisar('Revista restablecida', true);
+      conGuardado(async () => {
+        await Datos.restablecer();
+        await cargarTodo();
+      }, 'Revista restablecida');
     });
   });
-}
-
-/** Descarga el archivo que hay que subir con la revista para publicarla. */
-async function publicar () {
-  const paquete = await Datos.exportar();
-  const texto = JSON.stringify(paquete);
-  descargarJSON(texto, 'datos.json');
-
-  const megas = (new Blob([texto]).size / 1024 / 1024).toFixed(1);
-  $('#pesoPublicar').textContent =
-    `Listo: datos.json pesa ${megas} MB (las fotos van adentro). ` +
-    'Ponlo junto a index.html y vuelve a subir la carpeta.' +
-    (megas > 8 ? ' Va pesadito: si tarda en abrir, sube menos fotos por prenda.' : '');
-  avisar('datos.json descargado', true);
 }
 
 async function exportar () {
@@ -1378,9 +1402,10 @@ async function importar (e) {
   try {
     const paquete = JSON.parse(await archivo.text());
     confirmar('El contenido actual será reemplazado por el del respaldo.', async () => {
-      await Datos.importar(paquete);
-      await cargarTodo();
-      avisar('Respaldo importado', true);
+      conGuardado(async () => {
+        await Datos.importar(paquete);
+        await cargarTodo();
+      }, 'Respaldo importado');
     });
   } catch (err) {
     console.error(err);

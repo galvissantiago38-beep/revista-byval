@@ -1,29 +1,24 @@
 /* ═══════════════════════════════════════════════════════════════
-   DATA — capa de datos y almacenamiento
+   DATA — capa de datos
    ───────────────────────────────────────────────────────────────
-   Todo el acceso a datos pasa por aquí. Si algún día quieres un
-   backend real (Supabase, Firebase, tu propia API), solo hay que
-   reescribir este archivo: el resto del proyecto no se entera.
+   El catálogo vive en Supabase, así que se edita desde cualquier
+   dispositivo y los cambios se ven al instante en el link público.
 
-   · localStorage → configuración, productos, páginas, vistas, favoritos
-   · IndexedDB    → imágenes en base64 (pesan demasiado para localStorage)
+   · Supabase (tabla `revista`) → config, productos y páginas
+   · Supabase Storage           → las fotos
+   · localStorage               → copia local, para que la revista
+                                  abra rápido y aguante sin internet
+
+   El resto del proyecto pide los datos igual que antes: se cargan
+   una vez al arrancar y después se leen de memoria.
    ═══════════════════════════════════════════════════════════════ */
 
+import * as Nube from './nube.js';
+
 const CLAVES = {
-  config:    'revista.config',
-  productos: 'revista.productos',
-  paginas:   'revista.paginas',
-  vistas:    'revista.vistas',
-  deseos:    'revista.deseos',
-  version:   'revista.version',
-  sello:     'revista.sello',      // marca del datos.json que ya importamos
-  esAdmin:   'revista.esAdmin'     // este navegador es el de la tienda
+  copia:  'revista.copiaLocal',   // respaldo por si no hay internet
+  deseos: 'revista.deseos'
 };
-
-const VERSION_DATOS = 3;
-
-/** Archivo que publicas junto a la revista para que las clientas vean TU catálogo. */
-const ARCHIVO_PUBLICADO = 'datos.json';
 
 /* ═══════════ IMÁGENES DE EJEMPLO GENERADAS POR CÓDIGO ═══════════ */
 
@@ -42,7 +37,7 @@ const PALETA_SVG = ['#F2D8D8', '#FCEFEF', '#FFFFFF', '#FDF6F0', '#DCE8F5', '#E9D
 
 /**
  * Dibuja una foto de moda de mentira: fondo en degradado, telas y una
- * silueta. Sirve de relleno editorial hasta que subas tus fotos reales.
+ * silueta. Sirve de relleno hasta que subas tus fotos reales.
  */
 export function marcadorSVG ({ titulo = '', semilla = 'a', ancho = 900, alto = 1200, variante = 'retrato' } = {}) {
   const r = azarEstable(semilla + variante);
@@ -102,56 +97,18 @@ function escaparXML (t) {
   return String(t).replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
 }
 
-/* ═══════════ INDEXEDDB PARA LAS IMÁGENES ═══════════ */
+/* ═══════════ UTILIDADES ═══════════ */
 
-const DB_NOMBRE = 'revistaDB';
-const DB_ALMACEN = 'imagenes';
-let dbPromesa = null;
-
-function abrirDB () {
-  if (dbPromesa) return dbPromesa;
-  dbPromesa = new Promise((ok, mal) => {
-    const pedido = indexedDB.open(DB_NOMBRE, 1);
-    pedido.onupgradeneeded = () => {
-      const db = pedido.result;
-      if (!db.objectStoreNames.contains(DB_ALMACEN)) db.createObjectStore(DB_ALMACEN, { keyPath: 'id' });
-    };
-    pedido.onsuccess = () => ok(pedido.result);
-    pedido.onerror = () => mal(pedido.error);
-  });
-  return dbPromesa;
-}
-
-async function enDB (modo, trabajo) {
-  const db = await abrirDB();
-  return new Promise((ok, mal) => {
-    const tx = db.transaction(DB_ALMACEN, modo);
-    const almacen = tx.objectStore(DB_ALMACEN);
-    const pedido = trabajo(almacen);
-    tx.oncomplete = () => ok(pedido?.result);
-    tx.onerror = () => mal(tx.error);
-  });
-}
-
-/* ═══════════ LECTURA / ESCRITURA EN localStorage ═══════════ */
-
-function leer (clave, porDefecto) {
+function leerLocal (clave, porDefecto) {
   try {
     const crudo = localStorage.getItem(clave);
     return crudo ? JSON.parse(crudo) : porDefecto;
-  } catch {
-    return porDefecto;
-  }
+  } catch { return porDefecto; }
 }
 
-function escribir (clave, valor) {
-  try {
-    localStorage.setItem(clave, JSON.stringify(valor));
-    return true;
-  } catch (e) {
-    console.warn('No se pudo guardar en localStorage:', e);
-    return false;
-  }
+function escribirLocal (clave, valor) {
+  try { localStorage.setItem(clave, JSON.stringify(valor)); return true; }
+  catch (e) { console.warn('No se pudo guardar la copia local:', e); return false; }
 }
 
 export function nuevoId (prefijo = 'id') {
@@ -164,7 +121,7 @@ const CONFIG_INICIAL = {
   marca: 'BY VAL',
   temporada: 'Tejidos con personalidad',
   lema: '¡Ponle color a los días grises!',
-  whatsapp: '573017510667',            // indicativo + número, sin + ni espacios
+  whatsapp: '573017510667',
   mensajeWhatsapp: 'Hola {marca}, me encantó {producto} ({precio}). ¿Está disponible?',
   instagram: '@by____val',
   tiktok: '',
@@ -172,18 +129,14 @@ const CONFIG_INICIAL = {
   horarios: 'Lunes a sábado · 9:00 a 18:00',
   ciudad: 'Hecho en Colombia',
   moneda: 'COP',
-  sonidoHoja: 'suave',        // suave | revista | grueso
-  // Seguridad básica de fachada; para seguridad real hace falta un backend.
-  claveAdmin: 'admin123'
+  sonidoHoja: 'suave'
 };
 
-/* ═══════════ CONTENIDO DE EJEMPLO (12 PÁGINAS) ═══════════ */
+/* ═══════════ CONTENIDO DE EJEMPLO ═══════════ */
 
 function productosIniciales () {
   const p = (id, nombre, categoria, precio, extra = {}) => ({
-    id,
-    nombre,
-    categoria,
+    id, nombre, categoria,
     descripcionCorta: extra.corta || '',
     descripcionLarga: extra.larga || '',
     precio,
@@ -200,74 +153,65 @@ function productosIniciales () {
   return [
     p('cardigan-blues', 'Cardigan Blues', 'Cardigans', 265000, {
       corta: 'Tejido a mano en punto grueso, botones de madera.',
-      larga: 'Punto grueso trabajado a mano, con botones de madera y bolsillos al frente. El azul Blues es de los que levantan un lunes cualquiera. Se lleva abierto sobre una camiseta o cerrado como abrigo liviano.',
-      etiqueta: 'Nuevo', stock: 5,
-      tallas: ['S', 'M', 'L'],
+      larga: 'Punto grueso trabajado a mano, con botones de madera y bolsillos al frente. El azul Blues es de los que levantan un lunes cualquiera.',
+      etiqueta: 'Nuevo', stock: 5, tallas: ['S', 'M', 'L'],
       colores: [{ nombre: 'Blues', hex: '#7BA7D7' }, { nombre: 'Rosa palo', hex: '#F2D8D8' }]
     }),
     p('cardigan-lila', 'Cardigan Lila Pop', 'Cardigans', 265000, {
       corta: 'El mismo punto, en un lila que no pasa desapercibido.',
-      larga: 'Mismo tejido del Blues, otro estado de ánimo. El lila pop es el color que más nos piden y el que más rápido se va. Manga amplia y caída suave en los hombros.',
-      etiqueta: 'Últimas unidades', stock: 2,
-      tallas: ['S', 'M', 'L'],
+      larga: 'Mismo tejido del Blues, otro estado de ánimo. Manga amplia y caída suave en los hombros.',
+      etiqueta: 'Últimas unidades', stock: 2, tallas: ['S', 'M', 'L'],
       colores: [{ nombre: 'Lila Pop', hex: '#B79BD8' }]
     }),
     p('capa-huevo', 'Capa Huevo', 'Capas', 298000, {
       corta: 'Forma redonda, sin mangas, se pone encima de todo.',
-      larga: 'La favorita de la casa. Forma redonda que abraza sin apretar, sin mangas, pensada para ponerse encima de lo que ya tienes puesto. Cabe cualquier cosa debajo y sigue viéndose bien.',
+      larga: 'La favorita de la casa. Forma redonda que abraza sin apretar, pensada para ponerse encima de lo que ya tienes puesto.',
       stock: 4,
       colores: [{ nombre: 'Crudo', hex: '#F2E9E1' }, { nombre: 'Tennis Green', hex: '#4E8A6B' }]
     }),
     p('vestido-blues', 'Vestido Blues', 'Vestidos', 345000, {
       corta: 'Tejido largo con tirante ancho y espalda cerrada.',
-      larga: 'Largo hasta la pantorrilla, tirante ancho y espalda cerrada. El punto es más fino que el de los cardigans, así que cae en vez de abultar. Va solo en verano y con camiseta debajo el resto del año.',
-      stock: 3,
-      tallas: ['S', 'M', 'L'],
+      larga: 'Largo hasta la pantorrilla, tirante ancho y espalda cerrada. El punto es más fino que el de los cardigans, así que cae en vez de abultar.',
+      stock: 3, tallas: ['S', 'M', 'L'],
       colores: [{ nombre: 'Blues', hex: '#7BA7D7' }]
     }),
     p('chaleco-yellow', 'Chaleco Yellow Pop', 'Chalecos', 189000, {
       corta: 'Amarillo que se ve desde la otra cuadra.',
-      larga: 'Corto, sin mangas y de un amarillo que no pide permiso. Este es el que te pones cuando el día viene gris y toca hacer algo al respecto.',
-      etiqueta: 'Oferta', antes: 219000, stock: 7,
-      tallas: ['S', 'M', 'L'],
+      larga: 'Corto, sin mangas y de un amarillo que no pide permiso. El que te pones cuando el día viene gris.',
+      etiqueta: 'Oferta', antes: 219000, stock: 7, tallas: ['S', 'M', 'L'],
       colores: [{ nombre: 'Yellow Pop', hex: '#F2C94C' }]
     }),
     p('saco-tennis', 'Saco Tennis Green', 'Sacos', 289000, {
       corta: 'Cuello alto, punto cerrado, verde profundo.',
-      larga: 'Cuello alto que se puede doblar, punto cerrado que abriga de verdad. El verde tennis es un color serio que igual se lleva bien con los tonos vivos de la colección.',
-      stock: 5,
-      tallas: ['S', 'M', 'L'],
+      larga: 'Cuello alto que se puede doblar, punto cerrado que abriga de verdad.',
+      stock: 5, tallas: ['S', 'M', 'L'],
       colores: [{ nombre: 'Tennis Green', hex: '#4E8A6B' }, { nombre: 'Gris', hex: '#736666' }]
     }),
     p('top-rosa', 'Top Rosa Palo', 'Tops', 145000, {
       corta: 'Punto fino, tirantes delgados, el básico de la casa.',
-      larga: 'Punto fino, tirantes delgados y el rosa palo de la marca. Es la pieza que combina con todas las demás y por eso siempre se repone.',
-      stock: 9,
-      tallas: ['S', 'M', 'L'],
+      larga: 'Punto fino, tirantes delgados y el rosa palo de la marca. Es la pieza que combina con todas las demás.',
+      stock: 9, tallas: ['S', 'M', 'L'],
       colores: [{ nombre: 'Rosa palo', hex: '#F2D8D8' }, { nombre: 'Crudo', hex: '#F2E9E1' }]
     }),
     p('bufanda-larga', 'Bufanda Larga', 'Accesorios', 98000, {
       corta: 'Dos metros de punto para dar dos vueltas.',
-      larga: 'Dos metros completos: alcanza para dar dos vueltas y que todavía sobre. Tejida en el mismo hilo de los cardigans, así que hacen juego sin esfuerzo.',
+      larga: 'Dos metros completos: alcanza para dar dos vueltas y que todavía sobre.',
       stock: 12,
       colores: [{ nombre: 'Lila Pop', hex: '#B79BD8' }, { nombre: 'Yellow Pop', hex: '#F2C94C' }]
     }),
     p('gorro-pop', 'Gorro Pop', 'Accesorios', 72000, {
       corta: 'Ajustado, con vuelta ancha, en los cuatro colores.',
-      larga: 'Ajustado pero sin apretar, con vuelta ancha al frente. Está en los cuatro colores de la colección para que armes el juego que quieras.',
+      larga: 'Ajustado pero sin apretar, con vuelta ancha al frente. Está en los cuatro colores de la colección.',
       etiqueta: 'Nuevo', stock: 15,
       colores: [
-        { nombre: 'Blues', hex: '#7BA7D7' },
-        { nombre: 'Lila Pop', hex: '#B79BD8' },
-        { nombre: 'Yellow Pop', hex: '#F2C94C' },
-        { nombre: 'Tennis Green', hex: '#4E8A6B' }
+        { nombre: 'Blues', hex: '#7BA7D7' }, { nombre: 'Lila Pop', hex: '#B79BD8' },
+        { nombre: 'Yellow Pop', hex: '#F2C94C' }, { nombre: 'Tennis Green', hex: '#4E8A6B' }
       ]
     }),
     p('falda-punto', 'Falda de Punto', 'Faldas', 215000, {
       corta: 'Midi, cintura elástica, cae recta.',
-      larga: 'Midi, con cintura elástica forrada y caída recta. Se lleva con el Top Rosa Palo para un conjunto completo, o con camisa blanca para el día a día.',
-      stock: 6,
-      tallas: ['S', 'M', 'L'],
+      larga: 'Midi, con cintura elástica forrada y caída recta. Se lleva con el Top Rosa Palo para un conjunto completo.',
+      stock: 6, tallas: ['S', 'M', 'L'],
       colores: [{ nombre: 'Gris', hex: '#736666' }, { nombre: 'Crudo', hex: '#F2E9E1' }]
     })
   ];
@@ -301,7 +245,7 @@ function paginasIniciales () {
         { id: 'b81', clase: 'texto', texto: 'EL TALLER', estilo: 'etiqueta', tam: 2, color: 'tinta', alinear: 'left', rotar: 0, x: 11, y: 11, ancho: 44 },
         { id: 'b82', clase: 'foto', imagen: 'ph:editorial-2', foco: { x: 50, y: 45 }, rotar: 3, redondo: false, x: 46, y: 20, ancho: 44, alto: 44 },
         { id: 'b83', clase: 'texto', texto: 'hecho\na mano', estilo: 'manuscrita', tam: 16, color: 'acento', alinear: 'left', rotar: -5, x: 8, y: 26, ancho: 44 },
-        { id: 'b84', clase: 'texto', texto: 'Una prenda tejida a mano tarda días en salir. Ese tiempo se nota: en el peso, en cómo cae, en que aguanta temporadas enteras sin deformarse. No hacemos cientos de cada modelo: hacemos los que alcanzamos a hacer bien.', estilo: 'parrafo', tam: 3, color: 'tinta', alinear: 'left', rotar: 0, x: 11, y: 62, ancho: 40 },
+        { id: 'b84', clase: 'texto', texto: 'Una prenda tejida a mano tarda días en salir. Ese tiempo se nota: en el peso, en cómo cae, en que aguanta temporadas enteras sin deformarse.', estilo: 'parrafo', tam: 3, color: 'tinta', alinear: 'left', rotar: 0, x: 11, y: 62, ancho: 40 },
         { id: 'b85', clase: 'texto', texto: 'BY VAL', estilo: 'etiqueta', tam: 1.8, color: 'tinta', alinear: 'left', rotar: 0, x: 11, y: 87, ancho: 30 }
       ]
     },
@@ -312,217 +256,205 @@ function paginasIniciales () {
   ];
 }
 
-/** Todos los ids de imagen que usa una página, incluidos los bloques editoriales. */
-function imagenesDePagina (pg) {
-  const ids = [];
-  if (pg.imagen) ids.push(pg.imagen);
-  if (pg.fondo?.imagen) ids.push(pg.fondo.imagen);
-  (pg.bloques || []).forEach(b => { if (b.imagen) ids.push(b.imagen); });
-  return ids;
+/* ═══════════════════════════════════════════════════════════════
+   ESTADO EN MEMORIA
+   Todo se carga una vez al arrancar; después se lee de aquí, que es
+   instantáneo. Cada cambio se manda a la nube.
+   ═══════════════════════════════════════════════════════════════ */
+
+const memoria = {
+  config: { ...CONFIG_INICIAL },
+  productos: [],
+  paginas: [],
+  vistas: {},
+  enLinea: false,       // ¿pudimos hablar con la base?
+  motivo: ''            // por qué no, si no
+};
+
+export function estadoDeConexion () {
+  return { enLinea: memoria.enLinea, motivo: memoria.motivo };
+}
+
+/** Deja una copia en el navegador por si la próxima vez no hay internet. */
+function guardarCopia () {
+  escribirLocal(CLAVES.copia, {
+    config: memoria.config, productos: memoria.productos, paginas: memoria.paginas
+  });
 }
 
 /* ═══════════ API PÚBLICA ═══════════ */
 
-/** Busca el datos.json publicado. Si no existe, sigue de largo sin ruido. */
-async function leerPublicado () {
-  try {
-    const respuesta = await fetch(ARCHIVO_PUBLICADO, { cache: 'no-cache' });
-    if (!respuesta.ok) return null;
-    const paquete = await respuesta.json();
-    return paquete?.formato === 'revista-digital' ? paquete : null;
-  } catch {
-    return null;   // no hay archivo publicado, o estamos abriendo con file://
-  }
-}
-
 export const Datos = {
 
-  /**
-   * Prepara los datos al abrir la revista.
-   *
-   * Orden de prioridad:
-   *   1. El navegador de la tienda (el que entró al panel) manda: se respeta
-   *      siempre lo que hay en su localStorage.
-   *   2. En cualquier otro dispositivo, si junto a la revista hay un
-   *      `datos.json` publicado, ese es el catálogo que se muestra. Así el
-   *      link que compartes enseña TUS prendas y no las de ejemplo.
-   *   3. Si no hay nada de lo anterior, contenido de ejemplo.
-   */
+  /** Carga el catálogo: la nube primero; si falla, la copia local. */
   async iniciar () {
-    const esAdmin = leer(CLAVES.esAdmin, false);
+    try {
+      const fila = await Nube.leerRevista();
+      memoria.config = { ...CONFIG_INICIAL, ...(fila.config || {}) };
+      memoria.productos = fila.productos || [];
+      memoria.paginas = fila.paginas || [];
+      memoria.enLinea = true;
 
-    if (!esAdmin) {
-      const publicado = await leerPublicado();
-      // Reimportamos solo si el archivo publicado cambió desde la última visita.
-      if (publicado && publicado.exportado !== leer(CLAVES.sello, null)) {
-        await this.importar(publicado);
-        escribir(CLAVES.sello, publicado.exportado || 'sin-fecha');
-        return this;
+      // Base recién creada: la sembramos con el contenido de ejemplo.
+      if (!memoria.productos.length && !memoria.paginas.length) {
+        memoria.productos = productosIniciales();
+        memoria.paginas = paginasIniciales();
+        if (Nube.haySesion()) await this.sincronizar();
       }
+
+      guardarCopia();
+    } catch (e) {
+      // Sin internet o base caída: seguimos con lo último que vimos.
+      memoria.enLinea = false;
+      memoria.motivo = e.message || 'Sin conexión';
+      const copia = leerLocal(CLAVES.copia, null);
+      memoria.config = { ...CONFIG_INICIAL, ...(copia?.config || {}) };
+      memoria.productos = copia?.productos || productosIniciales();
+      memoria.paginas = copia?.paginas || paginasIniciales();
+      console.warn('Revista sin conexión:', memoria.motivo);
     }
 
-    if (leer(CLAVES.version, 0) !== VERSION_DATOS) {
-      // Contenido de ejemplo nuevo, pero sin cambiarte la contraseña del panel.
-      const anterior = leer(CLAVES.config, {});
-      escribir(CLAVES.productos, productosIniciales());
-      escribir(CLAVES.paginas, paginasIniciales());
-      escribir(CLAVES.config, { ...CONFIG_INICIAL, claveAdmin: anterior.claveAdmin || CONFIG_INICIAL.claveAdmin });
-      escribir(CLAVES.version, VERSION_DATOS);
-    }
+    memoria.vistas = memoria.enLinea ? await Nube.leerVistas() : {};
     return this;
   },
 
-  /** El panel llama a esto al entrar: este navegador pasa a ser el de la tienda. */
-  marcarComoAdmin () { escribir(CLAVES.esAdmin, true); },
+  /** Manda el catálogo completo a la base. */
+  async sincronizar () {
+    await Nube.guardarRevista({
+      config: memoria.config,
+      productos: memoria.productos,
+      paginas: memoria.paginas
+    });
+    guardarCopia();
+  },
 
   /* ── Configuración ── */
-  obtenerConfig () { return { ...CONFIG_INICIAL, ...leer(CLAVES.config, {}) }; },
-  guardarConfig (parcial) {
-    const nueva = { ...this.obtenerConfig(), ...parcial };
-    escribir(CLAVES.config, nueva);
-    return nueva;
+  obtenerConfig () { return { ...memoria.config }; },
+  async guardarConfig (parcial) {
+    memoria.config = { ...memoria.config, ...parcial };
+    await this.sincronizar();
+    return this.obtenerConfig();
   },
 
   /* ── Productos ── */
-  obtenerProductos () { return leer(CLAVES.productos, []); },
-  obtenerProducto (id) { return this.obtenerProductos().find(p => p.id === id) || null; },
+  obtenerProductos () { return memoria.productos; },
+  obtenerProducto (id) { return memoria.productos.find(p => p.id === id) || null; },
 
-  guardarProducto (producto) {
-    const lista = this.obtenerProductos();
-    const i = lista.findIndex(p => p.id === producto.id);
-    if (i >= 0) lista[i] = producto; else lista.push({ ...producto, id: producto.id || nuevoId('prod') });
-    escribir(CLAVES.productos, lista);
-    return lista;
+  async guardarProducto (producto) {
+    const i = memoria.productos.findIndex(p => p.id === producto.id);
+    if (i >= 0) memoria.productos[i] = producto;
+    else memoria.productos.push({ ...producto, id: producto.id || nuevoId('prod') });
+    await this.sincronizar();
+    return memoria.productos;
   },
 
-  duplicarProducto (id) {
+  async duplicarProducto (id) {
     const original = this.obtenerProducto(id);
     if (!original) return null;
     const copia = structuredClone(original);
     copia.id = nuevoId('prod');
     copia.nombre = `${original.nombre} (copia)`;
-    this.guardarProducto(copia);
+    await this.guardarProducto(copia);
     return copia;
   },
 
-  eliminarProducto (id) {
-    escribir(CLAVES.productos, this.obtenerProductos().filter(p => p.id !== id));
-    // También lo sacamos de las páginas que lo usaban.
-    const paginas = this.obtenerPaginas()
+  async eliminarProducto (id) {
+    memoria.productos = memoria.productos.filter(p => p.id !== id);
+    memoria.paginas = memoria.paginas
       .filter(pg => pg.producto !== id)
       .map(pg => pg.productos ? { ...pg, productos: pg.productos.filter(x => x !== id) } : pg);
-    this.guardarPaginas(paginas);
+    await this.sincronizar();
   },
 
   /* ── Páginas ── */
-  obtenerPaginas () { return leer(CLAVES.paginas, []); },
-  obtenerPaginasVisibles () { return this.obtenerPaginas().filter(p => p.visible !== false); },
-  guardarPaginas (paginas) { escribir(CLAVES.paginas, paginas); return paginas; },
-
-  /* ── Imágenes (IndexedDB) ── */
-  async guardarImagen (dataUrl) {
-    const id = nuevoId('img');
-    await enDB('readwrite', a => a.put({ id, dataUrl }));
-    return id;
+  obtenerPaginas () { return memoria.paginas; },
+  obtenerPaginasVisibles () { return memoria.paginas.filter(p => p.visible !== false); },
+  async guardarPaginas (paginas) {
+    memoria.paginas = paginas;
+    await this.sincronizar();
+    return paginas;
   },
 
-  async obtenerImagen (id) {
-    if (!id) return null;
-    if (id.startsWith('ph:')) return null;    // los placeholders se generan al vuelo
-    const fila = await enDB('readonly', a => a.get(id));
-    return fila ? fila.dataUrl : null;
+  /* ── Fotos ── */
+
+  /** Sube una foto a Storage y devuelve su identificador. */
+  async guardarImagen (dataUrl) {
+    const nombre = `${nuevoId('foto')}.jpg`;
+    await Nube.subirFoto(dataUrl, nombre);
+    return nombre;
   },
 
   async borrarImagen (id) {
     if (!id || id.startsWith('ph:')) return;
-    await enDB('readwrite', a => a.delete(id));
+    await Nube.borrarFoto(id);
   },
 
   /**
-   * Devuelve una URL usable en un <img> para cualquier id de imagen,
-   * sea un placeholder generado o una foto subida por la tienda.
+   * Dirección lista para un <img>, sea un marcador generado o una foto real.
+   * Es síncrona: las fotos ahora son URLs, no hay nada que ir a buscar.
    */
-  async urlImagen (id, pista = {}) {
+  urlImagen (id, pista = {}) {
     if (!id) return marcadorSVG({ titulo: pista.titulo, semilla: pista.semilla || 'x', variante: pista.variante });
     if (id.startsWith('ph:')) {
-      const semilla = id.slice(3);
-      return marcadorSVG({ titulo: pista.titulo, semilla, variante: pista.variante || 'retrato' });
+      return marcadorSVG({ titulo: pista.titulo, semilla: id.slice(3), variante: pista.variante || 'retrato' });
     }
-    const guardada = await this.obtenerImagen(id);
-    return guardada || marcadorSVG({ titulo: pista.titulo, semilla: id, variante: pista.variante });
+    if (id.startsWith('http') || id.startsWith('data:')) return id;
+    return Nube.urlDeFoto(id);
   },
 
-  /** Precarga en memoria todas las imágenes que la revista va a necesitar. */
+  /** Mapa de id → URL con todo lo que la revista va a mostrar. */
   async mapaDeImagenes () {
     const mapa = new Map();
-    const pendientes = [];
+    const agregar = (id, pista) => { if (id && !mapa.has(id)) mapa.set(id, this.urlImagen(id, pista)); };
 
-    const agregar = (id, pista) => {
-      if (!id || mapa.has(id)) return;
-      mapa.set(id, null);
-      pendientes.push(this.urlImagen(id, pista).then(url => mapa.set(id, url)));
-    };
-
-    this.obtenerPaginas().forEach(pg => {
+    memoria.paginas.forEach(pg => {
       const variante = pg.tipo === 'editorial' ? 'tela' : 'geo';
-      imagenesDePagina(pg).forEach(id => agregar(id, { titulo: pg.titulo || '', variante }));
+      if (pg.imagen) agregar(pg.imagen, { titulo: pg.titulo || '', variante });
+      if (pg.fondo?.imagen) agregar(pg.fondo.imagen, { titulo: pg.titulo || '', variante });
+      (pg.bloques || []).forEach(b => agregar(b.imagen, { variante }));
     });
-    this.obtenerProductos().forEach(pr => {
+    memoria.productos.forEach(pr => {
       (pr.imagenes || []).forEach(im => agregar(im.id, { titulo: pr.nombre, variante: 'retrato' }));
     });
 
-    await Promise.all(pendientes);
     return mapa;
   },
 
   /* ── Contador de vistas ── */
-  obtenerVistas () { return leer(CLAVES.vistas, { paginas: {}, productos: {} }); },
-
-  registrarVista (tipo, id) {
-    if (!id) return;
-    const v = this.obtenerVistas();
-    const grupo = tipo === 'producto' ? 'productos' : 'paginas';
-    v[grupo][id] = (v[grupo][id] || 0) + 1;
-    escribir(CLAVES.vistas, v);
+  obtenerVistas () {
+    const salida = { paginas: {}, productos: {} };
+    for (const [clave, cuenta] of Object.entries(memoria.vistas)) {
+      const [tipo, id] = clave.split(':');
+      if (tipo === 'producto') salida.productos[id] = cuenta;
+      else if (tipo === 'pagina') salida.paginas[id] = cuenta;
+    }
+    return salida;
   },
 
-  /* ── Lista de deseos (del lado de la clienta) ── */
-  obtenerDeseos () { return leer(CLAVES.deseos, []); },
+  registrarVista (tipo, id) {
+    if (!id || !memoria.enLinea) return;
+    Nube.sumarVista(`${tipo}:${id}`);
+  },
+
+  /* ── Lista de deseos (solo en el navegador de la clienta) ── */
+  obtenerDeseos () { return leerLocal(CLAVES.deseos, []); },
   alternarDeseo (id) {
     const lista = this.obtenerDeseos();
     const i = lista.indexOf(id);
     if (i >= 0) lista.splice(i, 1); else lista.push(id);
-    escribir(CLAVES.deseos, lista);
+    escribirLocal(CLAVES.deseos, lista);
     return lista;
   },
 
-  /* ── Exportar / importar ── */
+  /* ── Respaldo ── */
   async exportar () {
-    const productos = this.obtenerProductos();
-    const paginas = this.obtenerPaginas();
-
-    // Recogemos también las fotos reales para que el respaldo sirva en otro computador.
-    const ids = new Set();
-    paginas.forEach(pg => imagenesDePagina(pg).forEach(id => ids.add(id)));
-    productos.forEach(pr => (pr.imagenes || []).forEach(im => ids.add(im.id)));
-
-    const imagenes = {};
-    for (const id of ids) {
-      const url = await this.obtenerImagen(id);
-      if (url) imagenes[id] = url;
-    }
-
-    // La contraseña NUNCA sale de este navegador: el archivo exportado se
-    // publica en internet y cualquiera podría abrirlo y leerla.
-    const { claveAdmin, ...configPublica } = this.obtenerConfig();
-
     return {
       formato: 'revista-digital',
-      version: VERSION_DATOS,
+      version: 4,
       exportado: new Date().toISOString(),
-      config: configPublica,
-      productos, paginas, imagenes,
-      vistas: this.obtenerVistas()
+      config: memoria.config,
+      productos: memoria.productos,
+      paginas: memoria.paginas
     };
   },
 
@@ -530,31 +462,18 @@ export const Datos = {
     if (!paquete || paquete.formato !== 'revista-digital') {
       throw new Error('El archivo no parece un respaldo de la revista.');
     }
-    // Al importar respetamos la contraseña de ESTE navegador; el archivo no la trae.
-    if (paquete.config) {
-      const actual = leer(CLAVES.config, {});
-      escribir(CLAVES.config, {
-        ...CONFIG_INICIAL,
-        ...paquete.config,
-        claveAdmin: actual.claveAdmin || CONFIG_INICIAL.claveAdmin
-      });
-    }
-    if (paquete.productos) escribir(CLAVES.productos, paquete.productos);
-    if (paquete.paginas) escribir(CLAVES.paginas, paquete.paginas);
-    if (paquete.vistas) escribir(CLAVES.vistas, paquete.vistas);
-
-    for (const [id, dataUrl] of Object.entries(paquete.imagenes || {})) {
-      await enDB('readwrite', a => a.put({ id, dataUrl }));
-    }
-    escribir(CLAVES.version, VERSION_DATOS);
+    if (paquete.config) memoria.config = { ...CONFIG_INICIAL, ...paquete.config };
+    if (paquete.productos) memoria.productos = paquete.productos;
+    if (paquete.paginas) memoria.paginas = paquete.paginas;
+    await this.sincronizar();
   },
 
-  /** Vuelve al contenido de ejemplo (no borra las fotos guardadas). */
-  restablecer () {
-    escribir(CLAVES.productos, productosIniciales());
-    escribir(CLAVES.paginas, paginasIniciales());
-    escribir(CLAVES.config, CONFIG_INICIAL);
-    escribir(CLAVES.vistas, { paginas: {}, productos: {} });
+  /** Vuelve al contenido de ejemplo. */
+  async restablecer () {
+    memoria.config = { ...CONFIG_INICIAL };
+    memoria.productos = productosIniciales();
+    memoria.paginas = paginasIniciales();
+    await this.sincronizar();
   }
 };
 

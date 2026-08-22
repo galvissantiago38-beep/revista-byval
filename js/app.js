@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════════════ */
 
 import { Flipbook, SonidoPapel } from './flipbook.js';
-import { Datos, formatearPrecio, enlaceWhatsapp, marcadorSVG } from './data.js';
+import { Datos, formatearPrecio, enlaceWhatsapp, marcadorSVG, estadoDeConexion } from './data.js';
 import { pintarEditorial } from './editorial.js';
 
 /* ── Estado en memoria ──────────────────────────────────────── */
@@ -52,6 +52,12 @@ async function arrancar () {
   setTimeout(() => { $('#cargando').hidden = true; }, 700);
 
   aplicarEnlaceDirecto();
+
+  // Si no hubo forma de hablar con la base, la revista igual se ve: mostramos
+  // la última copia guardada, pero conviene decirlo en vez de disimularlo.
+  if (!estadoDeConexion().enLinea) {
+    setTimeout(() => avisar("Sin conexión: estás viendo una copia guardada"), 1200);
+  }
 }
 
 function esperarFuentes () {
