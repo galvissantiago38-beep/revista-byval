@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Revista — Catálogo de moda</title>
   <meta name="description" content="Catálogo de ropa femenina en formato de revista digital: pasa las hojas, mira los looks y pide por WhatsApp.">
-  <meta name="theme-color" content="#F2D8D8">
+  <meta name="theme-color" content="#EDA2D5">
 
   <!-- Open Graph / vista previa al compartir el enlace -->
   <meta property="og:type" content="website">
@@ -15,9 +15,9 @@
   <meta property="og:locale" content="es_CO">
   <meta name="twitter:card" content="summary_large_image">
 
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon.png" type="image/png">
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="assets/icono-512.svg">
+  <link rel="apple-touch-icon" href="assets/icono-192.png">
 
   <!-- Tipografías de revista -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,10 +31,7 @@
 
 <!-- ══════════ PANTALLA DE CARGA ══════════ -->
 <div class="cargando" id="cargando" role="status" aria-live="polite">
-  <svg class="cargando__logo" viewBox="0 0 200 120" aria-hidden="true">
-    <path class="trazo" d="M20 96 L20 24 L60 78 L100 24 L100 96" />
-    <path class="trazo trazo--2" d="M124 96 L124 24 L168 24 M124 58 L160 58 M124 96 L172 96" />
-  </svg>
+  <img class="cargando__logo" src="assets/logo-byval.png" alt="BY VAL">
   <p class="cargando__texto">Preparando la revista…</p>
   <div class="cargando__barra"><span></span></div>
 </div>
@@ -44,7 +41,7 @@
 
   <!-- Barra superior -->
   <header class="barra barra--arriba">
-    <div class="barra__marca" id="marcaCabecera"></div>
+    <div class="barra__marca" id="marcaCabecera"><img src="assets/logo-byval.png" alt="BY VAL"></div>
     <nav class="barra__acciones" aria-label="Acciones de la revista">
       <button class="icono" id="btnBuscar" aria-label="Buscar en la revista" title="Buscar (B)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>

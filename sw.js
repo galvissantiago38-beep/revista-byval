@@ -2,7 +2,7 @@
    abra rápido y funcione sin internet una vez visitada.
    Sube el número de CACHE cada vez que publiques cambios. */
 
-const CACHE = 'revista-v2';
+const CACHE = 'revista-v3';
 
 const ARCHIVOS = [
   './',
@@ -12,10 +12,12 @@ const ARCHIVOS = [
   './js/data.js',
   './js/flipbook.js',
   './js/editorial.js',
+  './js/nube.js',
   './manifest.json',
-  './assets/favicon.svg',
-  './assets/icono-192.svg',
-  './assets/icono-512.svg'
+  './assets/favicon.png',
+  './assets/logo-byval.png',
+  './assets/icono-192.png',
+  './assets/icono-512.png'
 ];
 
 self.addEventListener('install', evento => {

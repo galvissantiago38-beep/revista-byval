@@ -38,7 +38,7 @@ async function arrancar () {
 
   sonido.usarPapel(estado.config.sonidoHoja);
   document.title = `${estado.config.marca} — ${estado.config.temporada}`;
-  $('#marcaCabecera').textContent = estado.config.marca;
+  $('#marcaCabecera img')?.setAttribute('alt', estado.config.marca);
 
   construirRevista();
   conectarInterfaz();
@@ -161,7 +161,7 @@ function paginaPortada (el, pg) {
   const marca = document.createElement('button');
   marca.className = 'portada__marca';
   marca.id = 'logoPortada';
-  marca.textContent = estado.config.marca;
+  marca.innerHTML = `<img src="assets/logo-byval.png" alt="">`;
   marca.setAttribute('aria-label', `${estado.config.marca}. Toca cinco veces para una sorpresa`);
 
   const temporada = document.createElement('p');
@@ -988,7 +988,7 @@ function contarClicsLogo () {
 function lloverPetalos () {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const capa = $('#petalos');
-  const tonos = ['--rosa-palo', '--rosa-claro', '--lila', '--mantequilla'];
+  const tonos = ['--rosa-marca', '--naranja', '--rosa-palo', '--rosa-claro'];
 
   for (let i = 0; i < 46; i++) {
     const petalo = document.createElement('span');
