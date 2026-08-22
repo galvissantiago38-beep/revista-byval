@@ -166,12 +166,32 @@ export async function leerRevista () {
   return filas[0];
 }
 
-/** Guarda la revista. Requiere sesión y estar en la lista de correos. */
-export async function guardarRevista ({ config, productos, paginas }) {
-  const r = await fetch(`${NUBE.url}/rest/v1/revista?id=eq.${FILA}`, {
+/** Error especial: alguien más guardó mientras teníamos la página abierta. */
+export class ConflictoDeVersion extends Error {
+  constructor () {
+    super('Alguien guardó cambios desde otro dispositivo mientras tenías esto abierto.');
+    this.name = 'ConflictoDeVersion';
+  }
+}
+
+/**
+ * Guarda la revista.
+ *
+ * `selloPrevio` es la fecha de la última vez que LEÍMOS el catálogo. La
+ * usamos como condición: si en la base ya hay otra fecha, es que alguien
+ * guardó desde otro dispositivo y nuestra copia está vieja. En vez de
+ * escribir encima y borrarle el trabajo, avisamos.
+ */
+export async function guardarRevista ({ config, productos, paginas, selloPrevio }) {
+  const sello = new Date().toISOString();
+
+  let filtro = `id=eq.${FILA}`;
+  if (selloPrevio) filtro += `&actualizado=eq.${encodeURIComponent(selloPrevio)}`;
+
+  const r = await fetch(`${NUBE.url}/rest/v1/revista?${filtro}`, {
     method: 'PATCH',
     headers: { ...(await cabeceras(true)), Prefer: 'return=representation' },
-    body: JSON.stringify({ config, productos, paginas, actualizado: new Date().toISOString() })
+    body: JSON.stringify({ config, productos, paginas, actualizado: sello })
   });
 
   if (r.status === 401 || r.status === 403) {
@@ -181,7 +201,12 @@ export async function guardarRevista ({ config, productos, paginas }) {
 
   const filas = await r.json();
   if (!filas.length) {
-    // PATCH devuelve vacío cuando la regla de permisos bloquea la fila.
+    // Vacío puede ser una de dos cosas: la fila cambió (conflicto) o los
+    // permisos nos bloquearon. Preguntamos para decir cuál de las dos.
+    if (selloPrevio) {
+      const actual = await leerRevista().catch(() => null);
+      if (actual && actual.actualizado !== selloPrevio) throw new ConflictoDeVersion();
+    }
     throw new Error('Ese correo no está autorizado para editar la revista.');
   }
   return filas[0];

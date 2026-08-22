@@ -268,7 +268,8 @@ const memoria = {
   paginas: [],
   vistas: {},
   enLinea: false,       // ¿pudimos hablar con la base?
-  motivo: ''            // por qué no, si no
+  motivo: '',           // por qué no, si no
+  sello: null           // fecha de la última lectura, para no pisar a nadie
 };
 
 export function estadoDeConexion () {
@@ -293,6 +294,7 @@ export const Datos = {
       memoria.config = { ...CONFIG_INICIAL, ...(fila.config || {}) };
       memoria.productos = fila.productos || [];
       memoria.paginas = fila.paginas || [];
+      memoria.sello = fila.actualizado;
       memoria.enLinea = true;
 
       // Base recién creada: la sembramos con el contenido de ejemplo.
@@ -318,14 +320,36 @@ export const Datos = {
     return this;
   },
 
-  /** Manda el catálogo completo a la base. */
+  /**
+   * Manda el catálogo completo a la base.
+   *
+   * Viaja con el sello de la última lectura: si otro dispositivo guardó algo
+   * mientras tanto, la base rechaza la escritura en vez de borrarle el trabajo
+   * al otro. Entonces recargamos y avisamos, que es lo honesto.
+   */
   async sincronizar () {
-    await Nube.guardarRevista({
-      config: memoria.config,
-      productos: memoria.productos,
-      paginas: memoria.paginas
-    });
-    guardarCopia();
+    if (!memoria.enLinea) {
+      throw new Error('Sin conexión con la base: el cambio no se guardó.');
+    }
+    try {
+      const fila = await Nube.guardarRevista({
+        config: memoria.config,
+        productos: memoria.productos,
+        paginas: memoria.paginas,
+        selloPrevio: memoria.sello
+      });
+      memoria.sello = fila.actualizado;
+      guardarCopia();
+    } catch (e) {
+      if (e.name === 'ConflictoDeVersion') {
+        await this.iniciar();
+        throw new Error(
+          'Otro dispositivo guardó cambios mientras tenías esto abierto. ' +
+          'Recargué el catálogo: revisa y vuelve a hacer tu cambio.'
+        );
+      }
+      throw e;
+    }
   },
 
   /* ── Configuración ── */
