@@ -765,7 +765,7 @@ const ETIQUETAS_TIPO = {
 };
 
 function conectarPaginas () {
-  $('#btnAgregarPagina').addEventListener('click', agregarPagina);
+  $('#btnAgregarPagina').addEventListener('click', () => abrirDisenos('nueva'));
   $('#btnGuardarPagina').addEventListener('click', guardarPagina);
   $('#btnCerrarPagina').addEventListener('click', () => { $('#editorPagina').hidden = true; });
   conectarCompositor();
@@ -783,14 +783,12 @@ function bloqueActivo () { return bloques().find(b => b.id === estado.bloqueSel)
 
 function conectarCompositor () {
   // Rellenamos los desplegables una sola vez.
-  $('#plantillaPagina').innerHTML = '<option value="">Empezar desde una plantilla…</option>' +
-    Object.entries(PLANTILLAS).map(([id, p]) => `<option value="${id}">${p.nombre}</option>`).join('');
   $('#fondoColor').innerHTML = COLORES.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
   $('#bqEstilo').innerHTML = Object.entries(ESTILOS).map(([id, e]) => `<option value="${id}">${e.nombre}</option>`).join('');
   $('#bqColor').innerHTML = COLORES.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
   $('#bqAlinear').innerHTML = ALINEACIONES.map(a => `<option value="${a.id}">${a.nombre}</option>`).join('');
 
-  $('#plantillaPagina').addEventListener('change', aplicarPlantilla);
+  $('#btnCambiarDiseno').addEventListener('click', () => abrirDisenos('rehacer'));
   $('#btnAgregarTexto').addEventListener('click', () => agregarBloque(bloqueTexto()));
   $('#btnAgregarFoto').addEventListener('click', () => agregarBloque(bloqueFoto()));
 
@@ -888,21 +886,6 @@ function agregarBloque (bloque) {
   pg.bloques.push(bloque);
   estado.bloqueSel = bloque.id;
   pintarLienzo();
-}
-
-function aplicarPlantilla (e) {
-  const clave = e.target.value;
-  e.target.value = '';
-  if (!clave) return;
-  confirmar('La plantilla reemplaza lo que hay en esta página. ¿Seguimos?', () => {
-    const nueva = PLANTILLAS[clave].crear();
-    const pg = paginaEnEdicion();
-    pg.fondo = nueva.fondo;
-    pg.bloques = nueva.bloques;
-    estado.bloqueSel = null;
-    pintarLienzo();
-    avisar('Plantilla aplicada', true);
-  });
 }
 
 /* ── Pintado del lienzo ── */
@@ -1146,23 +1129,78 @@ function moverPagina (indice, delta) {
   conGuardado(() => Datos.guardarPaginas(estado.paginas));
 }
 
-function agregarPagina () {
-  const tipo = $('#tipoNuevaPagina').value;
+/* ═══════════════════════════════════════════════════════════════
+   SELECTOR DE DISEÑO DE HOJA
+   Antes se elegía "tipo de página", que son palabras de programador.
+   Ahora se elige viendo el dibujo de cómo va a quedar la hoja.
+   ═══════════════════════════════════════════════════════════════ */
+
+let destinoDiseno = 'nueva';   // 'nueva' o 'rehacer' la página abierta
+
+function abrirDisenos (destino) {
+  destinoDiseno = destino;
+  const rejilla = $('#rejillaDisenos');
+  rejilla.textContent = '';
+
+  $('#tituloDisenos').textContent = destino === 'nueva'
+    ? '¿Cómo quieres esta hoja?'
+    : 'Cambiar el diseño de esta hoja';
+  $('#ayudaDisenos').textContent = destino === 'nueva'
+    ? 'Elige un punto de partida. Después mueves las fotos y el texto a tu gusto.'
+    : 'Ojo: se reemplaza lo que tenga la hoja ahora.';
+
+  Object.entries(PLANTILLAS).forEach(([clave, plantilla]) => {
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'diseno';
+    boton.innerHTML = `
+      <svg class="diseno__dibujo" viewBox="0 0 100 133" aria-hidden="true">${plantilla.icono}</svg>
+      <strong class="diseno__nombre"></strong>
+      <small class="diseno__pista"></small>`;
+    $('.diseno__nombre', boton).textContent = plantilla.nombre;
+    $('.diseno__pista', boton).textContent = plantilla.pista || '';
+    boton.addEventListener('click', () => usarDiseno(clave));
+    rejilla.append(boton);
+  });
+
+  $('#modalDisenos').hidden = false;
+}
+
+function usarDiseno (clave) {
+  const plantilla = PLANTILLAS[clave];
+  $('#modalDisenos').hidden = true;
+
+  if (destinoDiseno === 'rehacer') {
+    const pg = paginaEnEdicion();
+    if (!pg) return;
+    const compuesta = plantilla.crear?.();
+    if (!compuesta) return avisar('Ese diseño solo sirve para hojas nuevas');
+    pg.tipo = plantilla.tipo;
+    pg.fondo = compuesta.fondo;
+    pg.bloques = compuesta.bloques;
+    estado.bloqueSel = null;
+    abrirPagina(pg);
+    avisar('Diseño cambiado — acuérdate de Guardar página');
+    return;
+  }
+
   const nueva = {
     id: nuevoId('pg'),
-    tipo,
-    seccion: ETIQUETAS_TIPO[tipo],
-    titulo: '', visible: true
+    tipo: plantilla.tipo,
+    seccion: plantilla.nombre,
+    titulo: '',
+    visible: true
   };
-  if (tipo === 'doble') nueva.productos = [];
-  if (tipo === 'producto') nueva.producto = estado.productos[0]?.id || '';
-  if (tipo === 'editorial') Object.assign(nueva, editorialEnBlanco());
+  const compuesta = plantilla.crear?.();
+  if (compuesta) Object.assign(nueva, compuesta);
+  if (plantilla.tipo === 'doble') nueva.productos = estado.productos.slice(0, 4).map(p => p.id);
+  if (plantilla.tipo === 'producto') nueva.producto = estado.productos[0]?.id || '';
 
   estado.paginas.push(nueva);
   pintarListaPaginas();
   pintarTablero();
   abrirPagina(nueva);
-  conGuardado(() => Datos.guardarPaginas(estado.paginas), 'Página agregada');
+  conGuardado(() => Datos.guardarPaginas(estado.paginas), `Hoja "${plantilla.nombre}" agregada`);
 }
 
 function duplicarPagina (indice) {

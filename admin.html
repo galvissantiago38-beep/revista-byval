@@ -219,17 +219,7 @@
       <header class="vista__cabecera">
         <h2>Revista</h2>
         <p>Arrastra las páginas para cambiar el orden. El número de página se recalcula solo.</p>
-        <div class="cabecera-acciones">
-          <select class="campo campo--corto" id="tipoNuevaPagina">
-            <option value="producto">Producto</option>
-            <option value="editorial">Editorial</option>
-            <option value="doble">Doble (lookbook)</option>
-            <option value="indice">Índice</option>
-            <option value="portada">Portada</option>
-            <option value="contraportada">Contraportada</option>
-          </select>
-          <button class="boton boton--primario" id="btnAgregarPagina">Agregar página</button>
-        </div>
+        <button class="boton boton--primario" id="btnAgregarPagina">+ Nueva hoja</button>
       </header>
 
       <div class="dos-columnas dos-columnas--revista">
@@ -286,9 +276,7 @@
                    aria-label="Lienzo de la página: arrastra los bloques para moverlos"></div>
 
               <div class="compositor__barra">
-                <select class="campo campo--corto" id="plantillaPagina">
-                  <option value="">Empezar desde una plantilla…</option>
-                </select>
+                <button class="boton boton--linea" type="button" id="btnCambiarDiseno">Cambiar diseño de la hoja</button>
                 <button class="boton boton--linea" type="button" id="btnAgregarTexto">+ Texto</button>
                 <button class="boton boton--linea" type="button" id="btnAgregarFoto">+ Foto</button>
               </div>
@@ -518,6 +506,17 @@
     </section>
 
   </main>
+</div>
+
+
+<!-- ══════════ ELEGIR DISEÑO DE HOJA ══════════ -->
+<div class="modal" id="modalDisenos" role="dialog" aria-modal="true" aria-labelledby="tituloDisenos" hidden>
+  <div class="modal__caja modal__caja--ancha">
+    <button class="modal__cerrar" data-cerrar aria-label="Cerrar">&times;</button>
+    <h2 class="modal__titulo" id="tituloDisenos">¿Cómo quieres esta hoja?</h2>
+    <p class="modal__ayuda" id="ayudaDisenos">Elige un punto de partida. Después mueves las fotos y el texto a tu gusto.</p>
+    <div class="disenos" id="rejillaDisenos"></div>
+  </div>
 </div>
 
 <!-- ══════════ MODAL DE RECORTE ══════════ -->
